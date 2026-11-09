@@ -52,3 +52,12 @@ There is no `gh` CLI, no API token, and the GitHub MCP connector failed to conne
 
 ### Verified
 On both Node 24 and Node 20, `pnpm verify` passed: tsc clean · 36/36 unit tests · production build · dist privacy scan · all 17 E2E checks under `/rewindary/` (0 external requests, CSP blocks a deliberate fetch, empty storage, PNG/SVG redaction).
+
+
+## Public launch — 2026-11-09 22:38 Europe/Paris
+
+- Repository: https://github.com/ArthurRavel/rewindary — **0 stars**, 0 forks, 0 open issues at verification.
+- Live app: https://arthurravel.github.io/rewindary/ — HTTP 200 verified.
+- Opponent: https://github.com/ArthurRavel/abo-killer — **0 stars** at verification.
+- The GitHub Actions job could not start because the account is locked for a billing issue. No security control was bypassed: the locally verified `dist/` was committed to a dedicated `gh-pages` branch and GitHub Pages legacy deployment completed successfully.
+- Future commits use the verified GitHub noreply identity. Published history was not rewritten.
