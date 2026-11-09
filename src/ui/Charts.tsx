@@ -19,7 +19,7 @@ export function DayClock({ hourly, label, value }: { hourly: Record<SourceId, nu
   return (
     <svg class="clock" viewBox="0 0 400 400" role="img" aria-label={`${label}: ${value}`}>
       {arcs.map((a, i) => (
-        <path key={i} d={a.d} fill={a.color} class="pop" style={`animation-delay:${a.hour * 30}ms`} />
+        <path key={i} d={a.d} fill={a.color} class="bloom" style={`animation-delay:${a.hour * 30}ms`} />
       ))}
       <text x="200" y="192" text-anchor="middle" class="clock-label">{label}</text>
       <text x="200" y="228" text-anchor="middle" class="clock-value">{value}</text>
@@ -39,13 +39,15 @@ export function MonthBars({ monthly }: { monthly: Record<SourceId, number[]> }) 
       {MONTH_SHORT.map((label, m) => {
         let y = 230;
         return (
-          <g key={label} class="pop" style={`animation-delay:${m * 50}ms`}>
-            {SOURCE_ORDER.map((k) => {
-              const h = (monthly[k][m] / max) * 210;
-              if (!h) return null;
-              y -= h;
-              return <rect key={k} x={m * 40 + 6} y={y} width={28} height={h} rx={4} fill={SOURCE_COLOR[k]} />;
-            })}
+          <g key={label}>
+            <g class="lift" style={`animation-delay:${m * 50}ms`}>
+              {SOURCE_ORDER.map((k) => {
+                const h = (monthly[k][m] / max) * 210;
+                if (!h) return null;
+                y -= h;
+                return <rect key={k} x={m * 40 + 6} y={y} width={28} height={h} rx={4} fill={SOURCE_COLOR[k]} />;
+              })}
+            </g>
             <text x={m * 40 + 20} y={252} text-anchor="middle" class="tick">{label[0]}</text>
           </g>
         );

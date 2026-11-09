@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { computeInsights, defaultYear } from '../insights';
 import type { IngestResult } from '../model';
 import { loadDemo } from '../pipeline';
@@ -24,6 +24,14 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({ year: null, off: new Set(), profiles: new Set() });
   const worker = useRef<Worker | null>(null);
+  const firstRender = useRef(true);
+
+  // Each screen replaces the whole page, so move focus to its heading (or the story itself):
+  // keyboard and screen-reader users would otherwise be left on a removed element.
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    document.querySelector<HTMLElement>('[data-stage-focus]')?.focus({ preventScroll: true });
+  }, [stage]);
 
   const accept = (r: IngestResult, isDemo: boolean) => {
     const merged = isDemo ? r : merge(demo ? null : data, r);
@@ -68,7 +76,7 @@ export function App() {
       {status && <p class="toast" role="status">{status}</p>}
       {error && <p class="toast error" role="alert">{error}</p>}
       <Review data={data} demo={demo} filters={filters} setFilters={setFilters} onPlay={() => setStage('story')} onAddMore={onFiles}
-        onForget={() => { setData(null); setDemo(false); setError(null); setStage('home'); }} />
+        onForget={() => { setData(null); setDemo(false); setError(null); setStage('home'); scrollTo(0, 0); }} />
     </>);
   }
   if (stage === 'story' && ins) return <Story ins={ins} onShare={() => setStage('share')} onExit={() => setStage('review')} />;

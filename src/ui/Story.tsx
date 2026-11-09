@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { SOURCE_COLOR } from '../charts';
 import { dayLabel, duration, hourLabel, hours, monthName, num, pct } from '../format';
 import type { Insights } from '../insights';
@@ -7,6 +7,7 @@ import { dayNumber } from '../insights';
 import type { SourceId } from '../model';
 import { SOURCE_LABEL } from '../model';
 import { DayClock, Legend, MonthBars, SplitBar } from './Charts';
+import { Icon } from './Icon';
 
 interface Slide { id: string; tone: SourceId | 'mix'; body: ComponentChildren }
 
@@ -23,6 +24,37 @@ function seasonsLine(ins: Insights): string {
   const uniq = new Set(parts.map((p) => p.split(' to ')[1]));
   if (uniq.size === 1 && parts.length > 1) return `Every season belonged to ${[...uniq][0]}. Loyal.`;
   return parts.join('. ') + '.';
+}
+
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Counts the big number up once when its slide opens. Frames write straight to the DOM node
+ * (no re-render per frame); assistive tech only ever gets the final value.
+ */
+function CountUp({ ms, delay = 0 }: { ms: number; delay?: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || reducedMotion()) return;
+    const DURATION = 1100;
+    let raf = 0;
+    let start = 0;
+    el.textContent = hours(0);
+    const frame = (now: number) => {
+      start ||= now + delay;
+      const t = Math.min(1, Math.max(0, (now - start) / DURATION));
+      el.textContent = hours(ms * (1 - Math.pow(2, -10 * t))); // ease-out expo
+      if (t < 1) raf = requestAnimationFrame(frame);
+      else el.textContent = hours(ms);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [ms, delay]);
+  return (<>
+    <span ref={ref} aria-hidden="true">{hours(ms)}</span>
+    <span class="sr-only">{hours(ms)}</span>
+  </>);
 }
 
 function Top({ items, unit }: { items: { name: string; value: string }[]; unit?: string }) {
@@ -61,7 +93,7 @@ export function buildSlides(ins: Insights): Slide[] {
     id: 'total', tone: 'mix',
     body: (<>
       <p class="kicker rise">The big number</p>
-      <p class="mega rise" style="animation-delay:150ms">{hours(ins.totalMs)}</p>
+      <p class="mega rise" style="animation-delay:150ms"><CountUp ms={ins.totalMs} delay={150} /></p>
       <p class="lead rise" style="animation-delay:300ms">hours of music, videos and shows{ins.estShare > 0.05 ? ` (${pct(ins.estShare)} estimated)` : ''} — about {num(ins.totalMs / 86_400_000)} full days.</p>
       <SplitBar items={media.map((s) => ({ source: s.source, ms: s.ms }))} />
       <ul class="rows rise" style="animation-delay:500ms">
@@ -166,7 +198,9 @@ const SLIDE_MS = 7000;
 export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => void; onExit: () => void }) {
   const slides = useMemo(() => buildSlides(ins), [ins]);
   const [i, setI] = useState(0);
-  const [paused, setPaused] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const [paused, setPaused] = useState(reducedMotion);
+  const storyRef = useRef<HTMLDivElement>(null);
+  const shareRef = useRef<HTMLButtonElement>(null);
   const last = i === slides.length;
   const go = useCallback((d: number) => setI((x) => Math.max(0, Math.min(slides.length, x + d))), [slides.length]);
   useEffect(() => {
@@ -176,26 +210,35 @@ export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => 
   }, [i, paused, last, go]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Space pauses, unless a real control has focus and should get its own activation.
+      const onControl = e.target instanceof Element && e.target.closest('button:not(.tap), a, input, select, textarea');
       if (e.key === 'ArrowRight') go(1);
       else if (e.key === 'ArrowLeft') go(-1);
-      else if (e.key === ' ') { e.preventDefault(); setPaused((p) => !p); }
+      else if (e.key === ' ' && !onControl) { e.preventDefault(); setPaused((p) => !p); }
       else if (e.key === 'Escape') onExit();
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
   }, [go, onExit]);
+  // Reaching the end removes the tap zones; keep focus in the story by moving it to the main action.
+  useEffect(() => {
+    if (!last) return;
+    const active = document.activeElement;
+    if (!active || active === document.body || storyRef.current?.contains(active)) shareRef.current?.focus({ preventScroll: true });
+  }, [last]);
   const slide = slides[i];
   return (
     <div class="story-wrap">
-      <div class={`story tone-${last ? 'mix' : slide.tone}`} data-slide={last ? 'end' : slide.id}>
+      <div class={`story tone-${last ? 'mix' : slide.tone}`} data-slide={last ? 'end' : slide.id} ref={storyRef}
+        tabIndex={-1} data-stage-focus role="region" aria-label="Your year in review">
         <div class="bars" aria-hidden="true">
           {slides.map((s, k) => (
             <span key={s.id} class={k < i ? 'done' : k === i ? (paused ? 'now paused' : 'now') : ''} style={k === i ? `animation-duration:${SLIDE_MS}ms` : ''}><b /></span>
           ))}
         </div>
         <div class="story-top">
-          <button class="ghost small" onClick={onExit} aria-label="Close story">✕</button>
-          <button class="ghost small" onClick={() => setPaused((p) => !p)} aria-label={paused ? 'Play' : 'Pause'}>{paused ? '▶' : '❚❚'}</button>
+          <button class="icon-button" onClick={onExit} aria-label="Close story"><Icon name="close" /></button>
+          <button class="icon-button" onClick={() => setPaused((p) => !p)} aria-label={paused ? 'Play' : 'Pause'}><Icon name={paused ? 'play' : 'pause'} /></button>
         </div>
         {last ? (
           <div class="slide end" key="end">
@@ -203,7 +246,7 @@ export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => 
             <h2 class="big rise" style="animation-delay:150ms">Make it shareable — safely.</h2>
             <p class="lead rise" style="animation-delay:300ms">Cards hide names and exact dates by default. You'll see every line before anything is saved.</p>
             <div class="actions rise" style="animation-delay:450ms">
-              <button class="primary" onClick={onShare}>Create share card</button>
+              <button class="primary" onClick={onShare} ref={shareRef}>Create share card</button>
               <button class="ghost" onClick={() => setI(0)}>Replay</button>
             </div>
           </div>

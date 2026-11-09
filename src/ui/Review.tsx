@@ -16,7 +16,7 @@ export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget,
   const usable = sources.some((s) => !filters.off.has(s));
   return (
     <main class="review-page">
-      <h1>{demo ? 'Synthetic demo data loaded' : 'Here is what we found'}</h1>
+      <h1 tabIndex={-1} data-stage-focus>{demo ? 'Synthetic demo data loaded' : 'Here is what we found'}</h1>
       <p class="lead">{demo ? 'Invented artists, channels and shows, generated in your browser in real export formats and parsed by the same code as your files.' : 'Parsed on this device. Check it, then press play.'}</p>
       <ul class="reports" data-testid="reports">
         {data.reports.map((r, i) => (
@@ -58,7 +58,7 @@ export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget,
         </div>
         <div class="actions">
           <button class="primary" onClick={onPlay} disabled={!usable} data-testid="play">Play my story</button>
-          <label class="ghost button">Add more files<input type="file" multiple accept=".zip,.json,.csv,.html,.htm" hidden onChange={(e) => { const l = (e.target as HTMLInputElement).files; if (l?.length) onAddMore([...l]); }} /></label>
+          <label class="ghost button">Add more files<input type="file" multiple accept=".zip,.json,.csv,.html,.htm" class="sr-only" onChange={(e) => { const el = e.currentTarget; const l = el.files ? [...el.files] : []; el.value = ''; if (l.length) onAddMore(l); }} /></label>
           <button class="ghost" onClick={onForget}>Forget everything</button>
         </div>
       </>)}
