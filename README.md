@@ -109,13 +109,17 @@ What `verify` runs, exactly:
   - Source privacy scan.
 - `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 63 KB of JS (≈24 KB gzipped) plus an 18 KB parser worker. Runtime dependencies are `preact` and `fflate`.
 - `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle, and a strict CSP is present.
-- `node scripts/e2e.mjs`: drives the built site in headless Chromium.
+- `node scripts/e2e.mjs`: drives the built site in headless Chromium, served under `/rewindary/` exactly like the GitHub Pages project site (any request outside that path fails the run). `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` runs the same checks against the deployed copy.
   - Runs the demo through every slide, then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names.
   - Uploads zipped and plain fixtures for all three adapters.
   - Checks zero external requests, that the CSP blocks a deliberate `fetch`, empty storage, and no page errors.
   - It uses `CHROME_PATH`, or a Chromium already in the Playwright cache. It downloads nothing.
 
 All fixtures in `tests/fixtures/` and all demo data are synthetic. Documentation IP addresses (`192.0.2.x`) and an invented country code `ZZ` stand in for real values.
+
+## Deploy
+
+`.github/workflows/pages.yml` runs the full `verify` gate (Node 24, preinstalled Chrome) on every push and pull request, and deploys `dist/` from `main` to GitHub Pages. One-time setup in a fork: Settings → Pages → Source: **GitHub Actions**. Any static host works too, since the build uses relative paths.
 
 ## Project layout
 
@@ -128,6 +132,7 @@ src/cards.ts        share-card lines + SVG renderer (redaction lives here)
 src/demo.ts         deterministic synthetic exports
 src/ui/             Preact screens: Home, Review, Story, Share
 scripts/            e2e, dist privacy scan, static server, GIF builder
+.github/workflows/  verify + GitHub Pages deploy
 docs/race-log.md    daily public race log
 ```
 

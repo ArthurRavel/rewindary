@@ -1,5 +1,7 @@
 // End-to-end test of the production build in real Chromium.
-// Fails on: any request leaving the local origin, CSP violations, page errors, unredacted card output.
+// Fails on: any request outside the app's own URL, CSP violations, page errors, unredacted card output.
+// By default it serves dist/ under /rewindary/ like GitHub Pages. Set E2E_URL to test a deployed copy instead,
+// e.g. E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,13 +15,17 @@ const fx = (p) => readFileSync(join(ROOT, 'tests/fixtures', p));
 let failures = 0;
 const check = (ok, msg) => { console.log(`${ok ? '  ✓' : '  ✗'} ${msg}`); if (!ok) failures++; };
 
-const { server, origin } = await serve(join(ROOT, 'dist'));
+const local = process.env.E2E_URL ? null : await serve(join(ROOT, 'dist'), 0, '/rewindary/');
+// App root URL; a bare directory like ".../rewindary" is treated as ".../rewindary/" so the request allow-list stays narrow.
+const remote = process.env.E2E_URL ? new URL(process.env.E2E_URL) : null;
+if (remote && !/\.[a-z0-9]+$/i.test(remote.pathname)) remote.pathname = remote.pathname.replace(/\/?$/, '/');
+const app = remote ? new URL('./', remote).href : local.url;
 const browser = await launch();
 const ctx = await browser.newContext({ viewport: { width: 400, height: 760 }, deviceScaleFactor: 1, acceptDownloads: true });
 const page = await ctx.newPage();
 const external = [];
 const errors = [];
-page.on('request', (r) => { if (!r.url().startsWith(origin) && !/^(blob|data):/.test(r.url())) external.push(r.url()); });
+page.on('request', (r) => { if (!r.url().startsWith(app) && !/^(blob|data):/.test(r.url())) external.push(r.url()); });
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 await page.addInitScript(() => {
@@ -34,7 +40,7 @@ const snap = async (name) => {
 };
 
 console.log('Demo flow');
-await page.goto(origin + '/');
+await page.goto(app);
 await page.getByTestId('demo').waitFor();
 await snap('home');
 await page.getByTestId('demo').click();
@@ -92,7 +98,7 @@ writeFileSync(join(dir, 'takeout-synthetic.zip'), zipSync({
 writeFileSync(join(dir, 'my_spotify_data.zip'), zipSync({ 'Spotify Extended Streaming History/Streaming_History_Audio_2024-2025_0.json': fx('spotify/Streaming_History_Audio_2024-2025_0.json') }));
 writeFileSync(join(dir, 'ViewingActivity.csv'), fx('netflix/ViewingActivity.csv'));
 await page.setViewportSize({ width: 400, height: 760 });
-await page.goto(origin + '/');
+await page.goto(app);
 await page.getByTestId('file-input').setInputFiles(['takeout-synthetic.zip', 'my_spotify_data.zip', 'ViewingActivity.csv'].map((f) => join(dir, f)));
 await page.getByTestId('reports').waitFor();
 const reports = await page.getByTestId('reports').innerText();
@@ -116,14 +122,14 @@ check(blocked === 'blocked', 'CSP blocks a deliberate fetch() to a remote host')
 await page.waitForFunction(() => window.__csp.length > 0, null, { timeout: 3000 }).catch(() => {});
 const csp = await page.evaluate(() => window.__csp);
 check(csp.length === 1 && csp[0].startsWith('connect-src'), `only the deliberate request violated CSP (${csp.join(' | ')})`);
-check(external.length === 0, `no request left ${origin} (${external.length} external)`);
+check(external.length === 0, `no request left ${app} (${external.length} external${external.length ? ': ' + external.join(' | ') : ''})`);
 const storage = await page.evaluate(() => [localStorage.length, sessionStorage.length, document.cookie.length, indexedDB.databases ? 'idb' : '']);
 check(storage[0] === 0 && storage[1] === 0 && storage[2] === 0, 'nothing written to localStorage, sessionStorage or cookies');
 const unexpected = errors.filter((e) => !/example\.com|Content Security Policy|Failed to fetch/.test(e));
 check(unexpected.length === 0, `no page errors${unexpected.length ? ': ' + unexpected.join(' | ') : ''}`);
 
 await browser.close();
-server.close();
+local?.server.close();
 if (failures) {
   console.error(`\n${failures} e2e check(s) failed`);
   process.exit(1);
