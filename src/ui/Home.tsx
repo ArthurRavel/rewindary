@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import { GUIDES } from './guides';
+import { Icon, Mark } from './Icon';
 
 export function Home({ onFiles, onDemo, status, error }: { onFiles: (f: File[]) => void; onDemo: () => void; status: string | null; error: string | null }) {
   const [drag, setDrag] = useState(false);
@@ -7,20 +8,22 @@ export function Home({ onFiles, onDemo, status, error }: { onFiles: (f: File[]) 
   return (
     <main class="home">
       <header class="hero">
-        <p class="kicker">Rewindary</p>
-        <h1>Your year, rewound —<br /><span class="grad">Spotify, YouTube and Netflix</span> in one story.</h1>
+        <p class="brand"><Mark />Rewindary</p>
+        <h1 tabIndex={-1} data-stage-focus>Your year, rewound —<br /><span class="grad">Spotify, YouTube and Netflix</span> in one story.</h1>
         <p class="lead">Drop your official data exports and get an animated year-in-review plus a share card that hides names by default. Everything is computed on this device: no upload, no account, no tracking.</p>
       </header>
       <label
-        class={`drop ${drag ? 'drag' : ''}`}
+        class={`drop${drag ? ' drag' : ''}${status ? ' busy' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer?.files ?? null); }}
       >
-        <input type="file" multiple accept=".zip,.json,.csv,.html,.htm" onChange={(e) => pick((e.target as HTMLInputElement).files)} data-testid="file-input" />
+        <input type="file" multiple accept=".zip,.json,.csv,.html,.htm" onChange={(e) => { const el = e.currentTarget; pick(el.files); el.value = ''; }} data-testid="file-input" />
+        <span class="drop-icon" aria-hidden="true">{!status && <Icon name="upload" size={24} />}</span>
         <span class="drop-title">{status ?? 'Drop your export .zip files here'}</span>
         <span class="drop-sub">{status ? 'Working locally…' : 'or click to choose — Spotify, Google Takeout and Netflix zips, or the JSON/CSV/HTML files inside'}</span>
       </label>
+      <p class="sr-only" role="status">{status ?? ''}</p>
       {error && <p class="error" role="alert">{error}</p>}
       <div class="actions center">
         <button class="primary" onClick={onDemo} data-testid="demo">Try it with synthetic demo data</button>
@@ -35,7 +38,7 @@ export function Home({ onFiles, onDemo, status, error }: { onFiles: (f: File[]) 
         <p class="fine">Exports come straight from each service. Some take days, so request them now. Menu labels change over time; these steps describe late 2026.</p>
         {GUIDES.map((g) => (
           <details key={g.title}>
-            <summary><i class={`dot ${g.source}`} />{g.title}<small>{g.wait}</small></summary>
+            <summary><i class={`dot ${g.source}`} />{g.title}<Icon name="chevron" size={18} /><small>{g.wait}</small></summary>
             <ol>{g.steps.map((s) => <li key={s}>{s}</li>)}</ol>
             <p class="fine">Rewindary reads: <code>{g.file}</code>. {g.note}</p>
           </details>

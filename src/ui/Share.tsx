@@ -3,6 +3,7 @@ import { renderCardSvg, shownLines, type CardFormat, type CardTheme, type Reveal
 import { computeInsights } from '../insights';
 import type { LifeEvent, SourceId } from '../model';
 import { SOURCE_LABEL } from '../model';
+import { Icon } from './Icon';
 
 async function svgToPng(svg: string, w: number, h: number): Promise<Blob> {
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
@@ -63,7 +64,7 @@ export function Share({ events, year, onBack }: { events: LifeEvent[]; year: num
       setBusy(false);
     }
   };
-  const canShareFiles = typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([''], 'x.png', { type: 'image/png' })] });
+  const canShareFiles = useMemo(() => typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([''], 'x.png', { type: 'image/png' })] }), []);
   const share = async () => {
     const file = new File([await svgToPng(svg, W, H)], `${base}.png`, { type: 'image/png' });
     await navigator.share({ files: [file], title: 'My year, rewound' }).catch(() => {});
@@ -75,15 +76,15 @@ export function Share({ events, year, onBack }: { events: LifeEvent[]; year: num
         {preview && <img src={preview} alt="Share card preview" width={W} height={H} data-testid="card-preview" />}
       </div>
       <div class="share-panel">
-        <button class="ghost small" onClick={onBack}>← Back to story</button>
-        <h2>Your share card</h2>
+        <button class="ghost small" onClick={onBack}><Icon name="back" size={16} />Back to story</button>
+        <h2 tabIndex={-1} data-stage-focus>Your share card</h2>
         <div class="seg" role="group" aria-label="Format">
-          <button class={format === 'story' ? 'on' : ''} onClick={() => setFormat('story')}>Story 9:16</button>
-          <button class={format === 'square' ? 'on' : ''} onClick={() => setFormat('square')}>Square 1:1</button>
+          <button aria-pressed={format === 'story'} onClick={() => setFormat('story')}>Story 9:16</button>
+          <button aria-pressed={format === 'square'} onClick={() => setFormat('square')}>Square 1:1</button>
         </div>
         <div class="seg" role="group" aria-label="Theme">
-          <button class={theme === 'dusk' ? 'on' : ''} onClick={() => setTheme('dusk')}>Dusk</button>
-          <button class={theme === 'paper' ? 'on' : ''} onClick={() => setTheme('paper')}>Paper</button>
+          <button aria-pressed={theme === 'dusk'} onClick={() => setTheme('dusk')}>Dusk</button>
+          <button aria-pressed={theme === 'paper'} onClick={() => setTheme('paper')}>Paper</button>
         </div>
         {present.length > 1 && (
           <fieldset>
@@ -107,7 +108,7 @@ export function Share({ events, year, onBack }: { events: LifeEvent[]; year: num
                 <b>{l.value}</b>
                 {l.revealId && (
                   <label class="reveal">
-                    <input type="checkbox" checked={reveal.has(l.revealId)} onChange={() => setReveal(toggle(reveal, l.revealId!))} />
+                    <input type="checkbox" checked={reveal.has(l.revealId)} onChange={() => setReveal(toggle(reveal, l.revealId!))} aria-label={`Show ${l.label} on the card`} />
                     show
                   </label>
                 )}
@@ -120,10 +121,11 @@ export function Share({ events, year, onBack }: { events: LifeEvent[]; year: num
           <input type="checkbox" checked={reviewed} onChange={() => setReviewed(!reviewed)} data-testid="confirm-review" />
           I've reviewed what this card reveals.
         </label>
+        {!reviewed && <p class="fine hint" id="export-hint">Tick the box above to enable downloads.</p>}
         <div class="actions">
-          <button class="primary" disabled={!reviewed || busy} onClick={savePng}>Download PNG</button>
-          <button class="ghost" disabled={!reviewed} onClick={() => download(new Blob([svg], { type: 'image/svg+xml' }), `${base}.svg`)}>SVG</button>
-          {canShareFiles && <button class="ghost" disabled={!reviewed} onClick={share}>Share…</button>}
+          <button class="primary" disabled={!reviewed || busy} onClick={savePng} aria-describedby={reviewed ? undefined : 'export-hint'}><Icon name="download" size={18} />Download PNG</button>
+          <button class="ghost" disabled={!reviewed} onClick={() => download(new Blob([svg], { type: 'image/svg+xml' }), `${base}.svg`)} aria-describedby={reviewed ? undefined : 'export-hint'}>SVG</button>
+          {canShareFiles && <button class="ghost" disabled={!reviewed} onClick={share} aria-describedby={reviewed ? undefined : 'export-hint'}>Share…</button>}
         </div>
       </div>
     </section>
