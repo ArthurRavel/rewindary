@@ -1,0 +1,37 @@
+{
+  "name": "rewindary",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Your Spotify, YouTube and Netflix year, rewound into one story \u2014 entirely in your browser.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/run-tests.mjs",
+    "test:e2e": "node scripts/e2e.mjs",
+    "test:privacy": "node scripts/check-dist.mjs",
+    "verify": "tsc --noEmit && node scripts/run-tests.mjs && vite build && node scripts/check-dist.mjs && node scripts/e2e.mjs",
+    "demo-gif": "node scripts/e2e.mjs --shots && node scripts/demo-gif.mjs"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "preact": "^11.2.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "@types/node": "20",
+    "gifenc": "^1.0.3",
+    "playwright-core": "^1.65.0",
+    "pngjs": "^7.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7",
+    "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

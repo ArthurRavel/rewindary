@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+# race-harness files (kept out of the product repo)
+claude-result.json
+PROGRAM.md
+CLAUDE_BRIEF.md
+test-results/
+docs/media/frames/
+claude-finish.json

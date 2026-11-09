@@ -1,0 +1,138 @@
+> **Built by Claude in a public race vs GPT** — opponent: [Abo Killer](https://github.com/ArthurRavel/abo-killer)
+>
+> [![Rewindary stars](https://img.shields.io/github/stars/ArthurRavel/rewindary?label=Rewindary%20(Claude)&style=social)](https://github.com/ArthurRavel/rewindary) [![Abo Killer stars](https://img.shields.io/github/stars/ArthurRavel/abo-killer?label=Abo%20Killer%20(GPT)&style=social)](https://github.com/ArthurRavel/abo-killer)
+
+# Rewindary
+
+**Your Spotify, YouTube and Netflix year, rewound into one story, entirely in your browser.**
+
+Drop the official data exports and you get an animated, mobile-first year in review that reads across all three services (your day clock, your seasons, your busiest day, binges, rabbit holes and streaks), plus a share card that hides names and exact dates until you opt in. No upload, no account, no API key, nothing to install.
+
+<p align="center"><img src="docs/media/demo.gif" alt="Rewindary demo: start page, then the animated story slides, generated from synthetic data" width="320"></p>
+
+<sub>The GIF shows real screenshots of the production build, captured automatically by <code>scripts/e2e.mjs --shots</code>. All data in it is synthetic: the artists, channels and shows are invented.</sub>
+
+## What it does
+
+- **Three import adapters:** Spotify extended streaming history (or the 1-year account data), Google Takeout (YouTube watch and search history, Google Search activity, in JSON or HTML), and Netflix viewing activity (full data request, or the quick titles-and-dates CSV). You can drop the `.zip` files as they are; only known history files are decompressed, so photos and videos in a Takeout archive are never inflated.
+- **One local event model.** Every source becomes the same `LifeEvent` shape (`src/model.ts`), so the metrics run across sources:
+  - total hours and the share for each source
+  - a 24-hour day clock stacked by source, plus your peak hour and how much happened at night
+  - which source "owned" each season
+  - your most plugged-in day, broken down by source
+  - your longest daily streak and longest offline break
+  - your biggest Netflix binge, deepest YouTube rabbit hole and longest music run
+  - "second screen" time, when music played while a video or show was on
+  - a persona such as *Midnight Soundtracker* or *Weekend Binge Scholar*
+- **A story:** tap or arrow keys to move, auto-advance with pause, and support for `prefers-reduced-motion`.
+- **Share cards:** 9:16 story or 1:1 square, two themes, PNG or SVG. A review panel lists *every* line the card will contain (the panel and the renderer share one function). Personal values (#1 artist, show and channel, and the exact date of your busiest day) appear as `•••••` until you tick "show". You can drop whole sources from the card. Downloads stay disabled until you confirm that you've reviewed the card.
+- **Netflix profile filter** for shared accounts, a year or all-time selector, and per-source toggles.
+- **Synthetic demo.** The demo generates fake exports in the real formats and runs them through the same parsers as your files.
+
+![Share card with its review panel](docs/media/share-card-review.png)
+
+## Privacy model
+
+| Guarantee | How it is enforced | How it is tested |
+|---|---|---|
+| Files never leave the device | Parsing runs in a Web Worker on `File` objects. The production `index.html` ships a Content-Security-Policy with `connect-src 'none'`, `default-src 'none'`, no remote scripts, fonts or styles | E2E test in real Chromium: fails if *any* request leaves the local origin, and checks that a deliberate `fetch()` to a remote host is **blocked** by the CSP |
+| No telemetry, analytics, CDNs or remote fonts | No such code exists; system font stack only | `tests/privacy-source.test.ts` scans the source for network APIs. `scripts/check-dist.mjs` scans the built bundle for remote URLs and network APIs and checks that the CSP is present |
+| Nothing persisted | No cookies, `localStorage`, `IndexedDB` or service worker. Closing the tab forgets everything | E2E asserts empty `localStorage`, `sessionStorage` and cookies |
+| Minimal data kept in memory | Adapters drop IP addresses, countries, devices, platforms and bookmarks. **Search terms and URLs are discarded at parse time**, so a search becomes a bare timestamp. Ads, trailers, sub-minute previews and Spotify **private-session plays are excluded** | Parser tests assert that the synthetic IPs, queries, URLs and device names are absent from the parsed events |
+| Safe share cards | Names and exact dates are hidden by default. Titles, search terms, URLs and profile names are never on a card. User strings are XML-escaped | `tests/cards.test.ts` renders every format and theme from a full synthetic year and asserts that no name, title, profile, URL or exact date appears. The E2E test downloads the real PNG and SVG and checks them |
+
+**Threat model.** Rewindary protects you against the app itself, its hosting and its dependencies exfiltrating your history: the browser enforces the CSP even if the code had a bug. It also protects you from oversharing by accident through a card. It does **not** protect against a compromised browser or extension, or against someone with access to your unlocked device while the tab is open. The CSP is delivered as a `<meta>` tag because GitHub Pages cannot set headers. That covers network requests, but not `frame-ancestors`. If you don't want to trust the hosted copy, build it yourself (see below) and open `dist/` from any static server, or check DevTools → Network.
+
+**Estimates are labelled.** YouTube history has no durations, so Rewindary estimates each video from the gap to the next one (1–15 min, 8 min when the next watch is far away). The quick Netflix CSV has no durations or times, so it uses 40 min per episode and 100 min per film and leaves those rows out of hour-of-day charts. The story shows the estimated share of your total.
+
+## Get your data
+
+Exports come straight from each service and some take days, so request them first. Menu labels change over time; these steps describe the flows as of November 2026.
+
+**Spotify: extended streaming history** (Spotify says it can take up to 30 days)
+1. Sign in at spotify.com and open Account → Privacy settings ("Download your data").
+2. Tick **Extended streaming history**, request it, and confirm the email.
+3. Download `my_spotify_data.zip` and drop it in as it is. Rewindary reads `Streaming_History_Audio_*.json` (older exports use `endsong_*.json`). The quicker "Account data" export (`StreamingHistory_music_*.json`) also works, but it covers only about a year. If you provide both, the extended history wins and duplicates are merged.
+
+**YouTube and Google Search: Google Takeout** (minutes to hours)
+1. Open takeout.google.com and click **Deselect all**.
+2. Tick **YouTube and YouTube Music** → "All YouTube data included" → keep only **history**.
+3. Optional: tick **My Activity** and keep only **Search** to add your search rhythm. Only the timestamps are used.
+4. Pick JSON under "Multiple formats" if you can. HTML works too: dates in English, French, German, Spanish, Italian and Portuguese formats are parsed.
+5. Drop the `.zip`.
+
+**Netflix: viewing activity**
+- Best: in your account, open **Download your personal information** (up to 30 days) and drop the `.zip`. It contains `CONTENT_INTERACTION/ViewingActivity.csv` with exact start times and durations.
+- Instant: Account → Profile → **Viewing activity → Download all** gives `NetflixViewingHistory.csv`. It has titles and dates only, so durations are estimated. Day-first and month-first dates are detected automatically.
+
+## Competition and naming (checked 9 Nov 2026)
+
+We are **not** the first multi-source "wrapped" for personal data, and we don't claim to be.
+
+| Project | Sources | Where computation runs | Open source | Install |
+|---|---|---|---|---|
+| **Rewindary** | Spotify, YouTube + Google Search, Netflix | Browser only; CSP blocks all network; tested | Yes (MIT) | None (static page) |
+| [superwrapped.com](https://superwrapped.com) | Netflix, Strava, Goodreads, Letterboxd, Google Maps | Raw data in browser; precomputed summaries may be sent out for insight generation | No | None |
+| [abdullahasghar966/life-wrapped](https://github.com/abdullahasghar966/life-wrapped) | Spotify, YouTube, Netflix (same combination as ours) | Browser (per its description) | No license stated | — |
+| [facebookresearch/personal-timeline](https://github.com/facebookresearch/personal-timeline) | Many personal-data sources, as a timeline | Local Python/Docker | Yes | Heavy |
+| [middlewarehq/unwrapped](https://github.com/middlewarehq/unwrapped) | GitHub (developer year) | Server | Yes | — |
+| Many single-source tools (Spotify, Netflix or YouTube "wrapped") | One each | Varies | Varies | Varies |
+
+What sets Rewindary apart, as plainly as we can say it:
+- metrics that read *across* sources (day clock, seasons, busiest day, second-screen time, persona) rather than separate dashboards
+- share cards that hide personal values by default, with a review step that shows exactly what will be exported
+- a no-network guarantee enforced by the browser and verified by automated tests
+- zero install, MIT-licensed
+
+The Spotify + YouTube + Netflix combination on its own is *not* unique.
+
+**Name audit.** "Unwrapped" (crowded on GitHub, npm package taken, `unwrapped.app` registered) and "Lifeprint" (taken) were rejected. On 9 Nov 2026, **Rewindary** returned no GitHub repositories and no npm package. `rewindary.com`, `.app`, `.io` and `.dev` didn't resolve, and a web search found no product by that name. This was not a trademark search.
+
+## Run, test, build
+
+You need Node ≥ 20. Use any package manager. If you have neither npm nor pnpm on your PATH, Node's bundled Corepack works: `corepack pnpm@9.15.0 <command>`.
+
+```sh
+pnpm install          # or: npm install / corepack pnpm@9.15.0 install
+pnpm dev              # local dev server
+pnpm verify           # typecheck → unit tests → production build → dist privacy scan → browser E2E
+pnpm demo-gif         # re-capture screenshots from the build and regenerate docs/media/demo.gif
+```
+
+What `verify` runs, exactly:
+- `tsc --noEmit`: strict TypeScript.
+- `node scripts/run-tests.mjs`: 36 Vitest tests in 5 files, run in UTC.
+  - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
+  - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
+  - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, the deterministic synthetic year.
+  - Redaction: all card formats and themes, review lines equal card lines, XML escaping.
+  - Source privacy scan.
+- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 63 KB of JS (≈24 KB gzipped) plus an 18 KB parser worker. Runtime dependencies are `preact` and `fflate`.
+- `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle, and a strict CSP is present.
+- `node scripts/e2e.mjs`: drives the built site in headless Chromium.
+  - Runs the demo through every slide, then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names.
+  - Uploads zipped and plain fixtures for all three adapters.
+  - Checks zero external requests, that the CSP blocks a deliberate `fetch`, empty storage, and no page errors.
+  - It uses `CHROME_PATH`, or a Chromium already in the Playwright cache. It downloads nothing.
+
+All fixtures in `tests/fixtures/` and all demo data are synthetic. Documentation IP addresses (`192.0.2.x`) and an invented country code `ZZ` stand in for real values.
+
+## Project layout
+
+```
+src/model.ts        unified LifeEvent model
+src/parsers/        spotify.ts · google.ts · netflix.ts · text.ts (CSV, entities, loose dates)
+src/ingest.ts       streaming unzip + format detection + merge/dedupe
+src/insights.ts     cross-source metrics and persona
+src/cards.ts        share-card lines + SVG renderer (redaction lives here)
+src/demo.ts         deterministic synthetic exports
+src/ui/             Preact screens: Home, Review, Story, Share
+scripts/            e2e, dist privacy scan, static server, GIF builder
+docs/race-log.md    daily public race log
+```
+
+## License
+
+MIT. Not affiliated with Spotify, Google, YouTube or Netflix.
+
+This is an experimental test project entirely managed by AI.
