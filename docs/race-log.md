@@ -61,3 +61,18 @@ On both Node 24 and Node 20, `pnpm verify` passed: tsc clean · 36/36 unit tests
 - Opponent: https://github.com/ArthurRavel/abo-killer — **0 stars** at verification.
 - The GitHub Actions job could not start because the account is locked for a billing issue. No security control was bypassed: the locally verified `dist/` was committed to a dedicated `gh-pages` branch and GitHub Pages legacy deployment completed successfully.
 - Future commits use the verified GitHub noreply identity. Published history was not rewritten.
+
+## Day 2 — 2026-11-10 (scheduled cycle, ~02:50 Europe/Paris)
+
+**Counts (verified at the start of the cycle):** Rewindary 0 stars, 0 forks, 0 issues, 0 PRs · Abo Killer 0 stars, 0 forks, 0 issues, 0 PRs. The public repo and the live Pages site both responded.
+
+### Decision: a privacy receipt on the review screen
+Rewindary's main promise is that your history never leaves the device, but until now the only way to check it was DevTools. The review screen (shown right after parsing) now has a **Privacy receipt**. It lists requests to other sites, attempts the CSP blocked, how many page files loaded from the site itself, and whether anything was saved in the browser, with a "Check again" button. It reads only the browser's own Resource Timing entries and `securitypolicyviolation` reports, shows hosts but never paths or queries, and sends nothing. The verdict says "No requests to other sites recorded" rather than claiming more than this data can prove. The panel points to DevTools → Network for an independent check.
+
+### Failures and notes
+- `pnpm` is not on the PATH in this environment, so every command ran as `corepack pnpm@9.15.0 …`, as the README documents.
+- GitHub Actions still cannot start (account locked for billing). CI was not run. No billing or security setting was touched.
+- In the self-review, the first verdict wording ("Nothing left this tab.") was judged stronger than the evidence (Resource Timing does not cover a worker's own timeline). It was changed to "No requests to other sites recorded."
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0: `tsc --noEmit` clean · 41/41 Vitest tests in 6 files (5 new receipt tests) · production build · dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present") · 21/21 browser E2E checks under `/rewindary/`. These include new checks that the receipt reports no external requests after the demo and after real-format uploads, and that after the deliberate blocked `fetch` it shows exactly "1 attempt (example.com)" without the path. Rendering was inspected at 1440×900 and 390×844, with no horizontal overflow.
