@@ -19,6 +19,15 @@ export function duration(ms: number): string {
 
 export const pct = (x: number) => `${Math.round(x * 100)}%`;
 
+/** Signed change from `prev` to `cur`: "+23%", "−12%", "±0%", or "3.4×" once it more than triples. */
+export function change(cur: number, prev: number): string {
+  if (prev <= 0) return cur > 0 ? 'new' : '±0%';
+  const r = cur / prev;
+  if (r >= 3) return `${r.toFixed(1).replace(/\.0$/, '')}×`;
+  const p = Math.round((r - 1) * 100);
+  return p === 0 ? '±0%' : `${p > 0 ? '+' : '−'}${Math.abs(p)}%`;
+}
+
 export function hourLabel(h: number): string {
   const ampm = h < 12 ? 'AM' : 'PM';
   const v = h % 12 === 0 ? 12 : h % 12;
@@ -28,6 +37,8 @@ export function hourLabel(h: number): string {
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export const MONTH_SHORT = MONTHS.map((m) => m.slice(0, 3));
 export const monthName = (m: number) => MONTHS[m];
+/** "Nov 9". */
+export const shortDate = (month: number, date: number) => `${MONTH_SHORT[month]} ${date}`;
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** Exact: "Saturday, March 15". Vague (privacy default): "a Saturday in March". */

@@ -19,6 +19,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
   - total hours and the share for each source
   - a 24-hour day clock stacked by source, plus your peak hour and how much happened at night
   - which source "owned" each season
+  - how the year compares with the one before, over the same dates and per source (a source counts only when its history reaches back to that January, and both years stop where the stalest export ends, so an unfinished year is never set against a full one)
   - your most plugged-in day, broken down by source
   - your longest daily streak and longest offline break
   - your biggest Netflix binge, deepest YouTube rabbit hole and longest music run
@@ -28,7 +29,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 - **Share cards:** 9:16 story or 1:1 square, two themes, PNG or SVG. A review panel lists *every* line the card will contain (the panel and the renderer share one function). Personal values (#1 artist, show and channel, and the exact date of your busiest day) appear as `•••••` until you tick "show". You can drop whole sources from the card. Downloads stay disabled until you confirm that you've reviewed the card.
 - **Privacy receipt.** After your files are parsed, the review screen shows what this tab actually did: requests to other sites (none), attempts the Content-Security-Policy blocked, how many page files loaded from the site itself, and whether anything was saved in the browser. It reads the browser's own request log (Resource Timing) and CSP reports, shows hosts only (never paths or queries), sends nothing, and can be re-checked at any time.
 - **Netflix profile filter** for shared accounts, a year or all-time selector, and per-source toggles.
-- **Synthetic demo.** The demo generates fake exports in the real formats and runs them through the same parsers as your files.
+- **Synthetic demo.** The demo generates two years of fake exports in the real formats and runs them through the same parsers as your files.
 
 ![Share card with its review panel](docs/media/share-card-review.png)
 
@@ -102,17 +103,17 @@ pnpm demo-gif         # re-capture screenshots from the build and regenerate doc
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 41 Vitest tests in 6 files, run in UTC.
+- `node scripts/run-tests.mjs`: 50 Vitest tests in 6 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
-  - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, the deterministic synthetic year.
+  - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years.
   - Redaction: all card formats and themes, review lines equal card lines, XML escaping.
   - Privacy receipt: same-origin vs external hosts, blocked attempts by host only, stored items.
   - Source privacy scan.
-- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 63 KB of JS (≈24 KB gzipped) plus an 18 KB parser worker. Runtime dependencies are `preact` and `fflate`.
+- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 72 KB of JS (≈27 KB gzipped) plus an 18 KB parser worker. Runtime dependencies are `preact` and `fflate`.
 - `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle, and a strict CSP is present.
 - `node scripts/e2e.mjs`: drives the built site in headless Chromium, served under `/rewindary/` exactly like the GitHub Pages project site (any request outside that path fails the run). `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` runs the same checks against the deployed copy.
-  - Runs the demo through every slide, then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names.
+  - Runs the demo through every slide (including the year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names.
   - Uploads zipped and plain fixtures for all three adapters.
   - Checks zero external requests, that the CSP blocks a deliberate `fetch`, empty storage, and no page errors.
   - Checks that the privacy receipt reports no external requests, then surfaces the deliberate blocked `fetch` by host only after "Check again".
@@ -122,7 +123,7 @@ All fixtures in `tests/fixtures/` and all demo data are synthetic. Documentation
 
 ## Deploy
 
-`.github/workflows/pages.yml` runs the full `verify` gate (Node 24, preinstalled Chrome) on every push and pull request, and deploys `dist/` from `main` to GitHub Pages. One-time setup in a fork: Settings → Pages → Source: **GitHub Actions**. Any static host works too, since the build uses relative paths.
+The live site is served by GitHub Pages from the `gh-pages` branch, which holds only a built `dist/` (plus `.nojekyll`). Each release runs `pnpm verify` locally, then commits that exact verified `dist/` to `gh-pages` with the `main` commit it was built from in the message. There is no CI workflow in this repository. To host a fork, run `pnpm verify` and publish `dist/` the same way (Settings → Pages → Deploy from a branch → `gh-pages`). Any static host works too, since the build uses relative paths.
 
 ## Project layout
 
@@ -136,7 +137,6 @@ src/receipt.ts      privacy receipt (reads Resource Timing + CSP reports, sends 
 src/demo.ts         deterministic synthetic exports
 src/ui/             Preact screens: Home, Review, Story, Share
 scripts/            e2e, dist privacy scan, static server, GIF builder
-.github/workflows/  verify + GitHub Pages deploy
 docs/race-log.md    daily public race log
 ```
 

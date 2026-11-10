@@ -50,15 +50,18 @@ const receipt = page.getByTestId('receipt');
 check(/No requests to other sites recorded/.test(await receipt.innerText()) && (await page.getByTestId('receipt-external').innerText()) === 'none' && (await page.getByTestId('receipt-blocked').innerText()) === 'none', 'privacy receipt reports no external or blocked requests after the demo');
 await page.getByTestId('play').click();
 const slideIds = [];
+let changeText = '';
 for (let i = 0; i < 20; i++) {
   const id = await page.locator('.story').getAttribute('data-slide');
   slideIds.push(id);
   await page.waitForTimeout(1100);
   await snap(`slide-${id}`);
+  if (id === 'change') changeText = `${await page.getByTestId('change-total').innerText()}\n${await page.locator('.slide').innerText()}`;
   if (id === 'end') break;
   await page.locator('.tap.next').click();
 }
-check(['intro', 'total', 'clock', 'seasons', 'busiest', 'spotify', 'youtube', 'netflix', 'rhythm', 'persona', 'end'].every((s) => slideIds.includes(s)), `story slides: ${slideIds.join(', ')}`);
+check(['intro', 'total', 'change', 'clock', 'seasons', 'busiest', 'spotify', 'youtube', 'netflix', 'rhythm', 'persona', 'end'].every((s) => slideIds.includes(s)), `story slides: ${slideIds.join(', ')}`);
+check(/Compared with 2024/.test(changeText) && /^\+\d+%\n/.test(changeText) && /from Jan 1 to Dec \d+ in both years/.test(changeText) && (changeText.match(/ → /g) ?? []).length === 3, `year-over-year slide compares 2025 with the same dates of 2024, per source: ${JSON.stringify(changeText.split('\n').slice(0, 3))}`);
 await page.getByText('Create share card').click();
 await page.setViewportSize({ width: 1280, height: 860 });
 await page.getByTestId('card-preview').waitFor();
