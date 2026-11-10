@@ -139,6 +139,19 @@ check(storage[0] === 0 && storage[1] === 0 && storage[2] === 0, 'nothing written
 const unexpected = errors.filter((e) => !/example\.com|Content Security Policy|Failed to fetch/.test(e));
 check(unexpected.length === 0, `no page errors${unexpected.length ? ': ' + unexpected.join(' | ') : ''}`);
 
+console.log('Localized Takeout');
+writeFileSync(join(dir, 'takeout-fr.zip'), zipSync({
+  'Takeout/YouTube et YouTube Music/historique/historique des vidéos regardées.json': fx('google/watch-history.json'),
+  'Takeout/Mon activité/Recherche/MonActivité.json': fx('google/MyActivity-search.json'),
+  'Takeout/Google Photos/Voyage/IMG_0001.jpg.json': new TextEncoder().encode('{"title":"IMG_0001.jpg"}'),
+}));
+await page.goto(app);
+await page.getByTestId('file-input').setInputFiles(join(dir, 'takeout-fr.zip'));
+await page.getByTestId('play').waitFor();
+const frReports = await page.getByTestId('reports').innerText();
+check(/Takeout activity \(JSON\)/.test(frReports) && (await page.getByTestId('ignored').count()) === 0, 'a Takeout with French file names is read by content, with no note about the photo sidecar');
+check(external.length === 0, `still no request left ${app} after the French Takeout`);
+
 console.log('Unrecognised exports');
 writeFileSync(join(dir, 'takeout-20261110T101500Z-001.zip'), zipSync({
   'Takeout/archive_browser.html': new TextEncoder().encode('<html></html>'),
