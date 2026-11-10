@@ -76,3 +76,31 @@ Rewindary's main promise is that your history never leaves the device, but until
 
 ### Verified (local)
 `corepack pnpm@9.15.0 verify` exited 0: `tsc --noEmit` clean · 41/41 Vitest tests in 6 files (5 new receipt tests) · production build · dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present") · 21/21 browser E2E checks under `/rewindary/`. These include new checks that the receipt reports no external requests after the demo and after real-format uploads, and that after the deliberate blocked `fetch` it shows exactly "1 attempt (example.com)" without the path. Rendering was inspected at 1440×900 and 390×844, with no horizontal overflow.
+
+## Day 2, cycle 2 — 2026-11-10 (scheduled cycle, ~08:00 Europe/Paris)
+
+**Counts (verified at 08:05 CET via the public GitHub API):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 open issues, 0 open PRs. `main` was clean at `7793212` and the live Pages site was built.
+
+### Decision: compare the year with the one before
+Real exports usually span several years: Spotify extended history and Google Takeout go back to the start of the account. Until now the story only looked at one year at a time. A new slide, **"Compared with 2024"**, sits after the big number. It shows the overall change (for example "+21%"), the hours in both years, and a per-source row with a paired bar (last year muted, this year in the source colour) and its own change. It also states the exact window, for example "counted from Jan 1 to Dec 29 in both years".
+
+The comparison declines rather than mislead:
+- A source counts only when its history reaches back to January of the earlier year. A 12-month "Account data" export or a service you joined mid-year doesn't read as growth.
+- Both years stop at the date where the stalest source's history ends, so the year in progress (or an old export) is compared over the same dates, never against a full year. Feb 29 doesn't spill into March.
+- There's no slide for "All time", for under a month of data, or under an hour in the earlier year.
+- When some durations are estimated (YouTube, the quick Netflix CSV), the slide says so.
+- It respects the source and Netflix-profile filters.
+
+The synthetic demo now also generates a quieter 2024. It is generated after 2025 with the same seed, so every 2025 number is unchanged. A SHA-1 of the 2025 insights matched `main` exactly.
+
+This is a story-only change. Share cards and their redaction are untouched.
+
+### Failures and notes
+- The first demo test expected a full-year comparison but got "through Dec 29": the demo's last Netflix night is Dec 29, so the window stops there for every source. That's the intended, honest behaviour, and snapping to "full year" would understate an unfinished December. The test was corrected and the label uses short dates on both ends.
+- Self-review against `main` found and fixed: the estimate note only mentioned YouTube (the quick Netflix CSV is estimated too); a history ending exactly on Dec 31 was labelled "Jan 1 to Dec 31" instead of a full-year comparison; a 6 px minimum bar width would have drawn a stub for a source with 0 h last year; screen readers got "396 → 466 h" (now read as "396 hours in 2024, 466 hours now"); an unused `data-testid` is now asserted by the E2E.
+- The README's Deploy section still described `.github/workflows/pages.yml`, which was removed in `14e0be2`. It now describes the actual `gh-pages` branch publication.
+- The Impeccable detector flagged only pre-existing gradient text (the hero and persona headings), not part of this change. Left as is.
+- `pnpm` is not on the PATH here, so commands ran as `corepack pnpm@9.15.0 …`. GitHub Actions still cannot start (account locked for billing) and there is no workflow: CI was not run. No billing or security setting was touched.
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 after the review fixes: `tsc --noEmit` clean · 50/50 Vitest tests in 6 files (9 new: 7 for `compareYears`, 1 for the change formatter, 1 for the two-year demo) · production build · dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present") · 22/22 browser E2E checks under `/rewindary/`, including the new one: the demo's year-over-year slide shows "+21%", "Compared with 2024", the "Jan 1 to Dec 29" window and three per-source rows. The slide was inspected at 1440×900 and 390×844, with and without reduced motion: no horizontal or vertical overflow.
