@@ -120,3 +120,6 @@ The likeliest way a real visitor fails is by dropping the wrong export: a Takeou
 
 ### Verified (local)
 `corepack pnpm@9.15.0 verify` exited 0 after the review fix: `tsc --noEmit` clean · 59/59 Vitest tests in 7 files (9 new in `tests/diagnose.test.ts`) · production build · dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present") · 26/26 browser E2E checks under `/rewindary/` (4 new: the Takeout-part hint, nothing to play, adding the missing export from the same screen, still zero external requests). The review screen with three ignored files was inspected at 1440×900 and 390×844 with reduced motion, with no horizontal overflow.
+
+### Deployed
+Merged into `main` as `707c1cf` (`507ea72` feature, `8619d42` log). `pnpm verify` was re-run on the merged `main` and passed (59/59 unit tests, 26/26 E2E). That exact `dist/` was published to `gh-pages` as `d23c891` ("deploy: explain unrecognised files (main 707c1cf)"). GitHub Pages served the new bundle (`index-tP4rSfYH.js`) about a minute later, with HTTP 200. `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` passed 26/26 against the live site, including the new unrecognised-file checks.
