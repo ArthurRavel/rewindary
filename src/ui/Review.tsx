@@ -2,12 +2,13 @@ import { num } from '../format';
 import { availableYears } from '../insights';
 import type { IngestResult, SourceId } from '../model';
 import { SOURCE_LABEL, SOURCE_ORDER } from '../model';
+import { FOLDER_PICKER, fromInput, type Picked } from './folders';
 import { PrivacyReceipt } from './Receipt';
 
 export interface Filters { year: number | null; off: Set<SourceId>; profiles: Set<string> }
 
 export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget, demo }: {
-  data: IngestResult; filters: Filters; setFilters: (f: Filters) => void; onPlay: () => void; onAddMore: (f: File[]) => void; onForget: () => void; demo: boolean;
+  data: IngestResult; filters: Filters; setFilters: (f: Filters) => void; onPlay: () => void; onAddMore: (f: Picked[]) => void; onForget: () => void; demo: boolean;
 }) {
   const years = availableYears(data.events);
   const counts = new Map<SourceId, number>();
@@ -15,6 +16,7 @@ export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget,
   const sources = SOURCE_ORDER.filter((s) => counts.has(s));
   const flip = <T,>(set: Set<T>, v: T) => { const n = new Set(set); n.has(v) ? n.delete(v) : n.add(v); return n; };
   const usable = sources.some((s) => !filters.off.has(s));
+  const add = (el: HTMLInputElement) => { const l = fromInput(el.files); el.value = ''; if (l.length) onAddMore(l); };
   return (
     <main class="review-page">
       <h1 tabIndex={-1} data-stage-focus>{demo ? 'Synthetic demo data loaded' : 'Here is what we found'}</h1>
@@ -69,7 +71,8 @@ export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget,
       )}
       <div class="actions">
         {data.events.length > 0 && <button class="primary" onClick={onPlay} disabled={!usable} data-testid="play">Play my story</button>}
-        <label class="ghost button">Add more files<input type="file" multiple accept=".zip,.json,.csv,.html,.htm" class="sr-only" onChange={(e) => { const el = e.currentTarget; const l = el.files ? [...el.files] : []; el.value = ''; if (l.length) onAddMore(l); }} data-testid="add-files" /></label>
+        <label class="ghost button">Add more files<input type="file" multiple accept=".zip,.json,.csv,.html,.htm" class="sr-only" onChange={(e) => add(e.currentTarget)} data-testid="add-files" /></label>
+        <label class="ghost button folder-only">Add a folder<input type="file" {...FOLDER_PICKER} class="sr-only" onChange={(e) => add(e.currentTarget)} data-testid="add-folder" /></label>
         <button class="ghost" onClick={onForget}>{data.events.length > 0 ? 'Forget everything' : 'Start over'}</button>
       </div>
       <PrivacyReceipt entries={data.events.length + data.reports.length} />

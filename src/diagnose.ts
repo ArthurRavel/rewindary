@@ -1,6 +1,6 @@
 /**
- * Explains why a dropped file produced no history, so the user knows which export to request
- * instead. It only looks at file and archive-entry *names* (never contents, never inflating
+ * Explains why a dropped file, zip or folder produced no history, so the user knows which export to request
+ * instead. It only looks at file, folder and archive-entry *names* (never contents, never inflating
  * anything extra) and keeps nothing but a few service flags.
  */
 export type Signal = 'spotify' | 'netflix' | 'takeout' | 'youtube' | 'meta';
@@ -42,12 +42,20 @@ function takeoutHint(name: string, signals: ReadonlySet<Signal>): string {
 
 /** A zip in which no known history file was found. */
 export function explainZip(name: string, signals: ReadonlySet<Signal>): string {
+  return explainService(name, signals) ?? (isSplitPart(name) ? takeoutHint(name, signals) : 'No Spotify, YouTube, Google Search or Netflix history inside this zip.');
+}
+
+/** An unzipped export folder in which no known history file was found. A folder name says nothing about split parts. */
+export function explainFolder(signals: ReadonlySet<Signal>): string {
+  return explainService('', signals) ?? 'No Spotify, YouTube, Google Search or Netflix history inside this folder.';
+}
+
+function explainService(name: string, signals: ReadonlySet<Signal>): string | null {
   if (signals.has('takeout')) return takeoutHint(name, signals);
   if (signals.has('spotify')) return SPOTIFY;
   if (signals.has('netflix')) return NETFLIX;
   if (signals.has('meta')) return META;
-  if (isSplitPart(name)) return takeoutHint(name, signals);
-  return 'No Spotify, YouTube, Google Search or Netflix history inside this zip.';
+  return null;
 }
 
 /** A loose file, or an archive entry with a known history name, that did not parse. */
