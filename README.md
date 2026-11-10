@@ -26,6 +26,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
   - a persona such as *Midnight Soundtracker* or *Weekend Binge Scholar*
 - **A story:** tap or arrow keys to move, auto-advance with pause, and support for `prefers-reduced-motion`.
 - **Share cards:** 9:16 story or 1:1 square, two themes, PNG or SVG. A review panel lists *every* line the card will contain (the panel and the renderer share one function). Personal values (#1 artist, show and channel, and the exact date of your busiest day) appear as `•••••` until you tick "show". You can drop whole sources from the card. Downloads stay disabled until you confirm that you've reviewed the card.
+- **Privacy receipt.** After your files are parsed, the review screen shows what this tab actually did: requests to other sites (none), attempts the Content-Security-Policy blocked, how many page files loaded from the site itself, and whether anything was saved in the browser. It reads the browser's own request log (Resource Timing) and CSP reports, shows hosts only (never paths or queries), sends nothing, and can be re-checked at any time.
 - **Netflix profile filter** for shared accounts, a year or all-time selector, and per-source toggles.
 - **Synthetic demo.** The demo generates fake exports in the real formats and runs them through the same parsers as your files.
 
@@ -101,11 +102,12 @@ pnpm demo-gif         # re-capture screenshots from the build and regenerate doc
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 36 Vitest tests in 5 files, run in UTC.
+- `node scripts/run-tests.mjs`: 41 Vitest tests in 6 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
   - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, the deterministic synthetic year.
   - Redaction: all card formats and themes, review lines equal card lines, XML escaping.
+  - Privacy receipt: same-origin vs external hosts, blocked attempts by host only, stored items.
   - Source privacy scan.
 - `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 63 KB of JS (≈24 KB gzipped) plus an 18 KB parser worker. Runtime dependencies are `preact` and `fflate`.
 - `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle, and a strict CSP is present.
@@ -113,6 +115,7 @@ What `verify` runs, exactly:
   - Runs the demo through every slide, then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names.
   - Uploads zipped and plain fixtures for all three adapters.
   - Checks zero external requests, that the CSP blocks a deliberate `fetch`, empty storage, and no page errors.
+  - Checks that the privacy receipt reports no external requests, then surfaces the deliberate blocked `fetch` by host only after "Check again".
   - It uses `CHROME_PATH`, or a Chromium already in the Playwright cache. It downloads nothing.
 
 All fixtures in `tests/fixtures/` and all demo data are synthetic. Documentation IP addresses (`192.0.2.x`) and an invented country code `ZZ` stand in for real values.
@@ -129,6 +132,7 @@ src/parsers/        spotify.ts · google.ts · netflix.ts · text.ts (CSV, entit
 src/ingest.ts       streaming unzip + format detection + merge/dedupe
 src/insights.ts     cross-source metrics and persona
 src/cards.ts        share-card lines + SVG renderer (redaction lives here)
+src/receipt.ts      privacy receipt (reads Resource Timing + CSP reports, sends nothing)
 src/demo.ts         deterministic synthetic exports
 src/ui/             Preact screens: Home, Review, Story, Share
 scripts/            e2e, dist privacy scan, static server, GIF builder

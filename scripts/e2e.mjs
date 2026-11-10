@@ -46,6 +46,8 @@ await snap('home');
 await page.getByTestId('demo').click();
 await page.getByTestId('reports').waitFor();
 check((await page.getByTestId('reports').locator('li').count()) === 4, 'demo produces 4 parsed export files');
+const receipt = page.getByTestId('receipt');
+check(/No requests to other sites recorded/.test(await receipt.innerText()) && (await page.getByTestId('receipt-external').innerText()) === 'none' && (await page.getByTestId('receipt-blocked').innerText()) === 'none', 'privacy receipt reports no external or blocked requests after the demo');
 await page.getByTestId('play').click();
 const slideIds = [];
 for (let i = 0; i < 20; i++) {
@@ -104,6 +106,7 @@ await page.getByTestId('reports').waitFor();
 const reports = await page.getByTestId('reports').innerText();
 check(/Spotify extended/.test(reports) && /Takeout activity \(HTML\)/.test(reports) && /Takeout activity \(JSON\)/.test(reports) && /Netflix viewing activity/.test(reports), 'all three adapters recognised the uploaded files (zip + csv, HTML + JSON)');
 check(!/Not recognised/.test(reports), 'no files rejected');
+check((await page.getByTestId('receipt-external').innerText()) === 'none', 'privacy receipt reports no external requests after parsing real-format files');
 await snap('review-upload');
 await page.getByTestId('play').click();
 await page.locator('.story').waitFor();
@@ -122,6 +125,11 @@ check(blocked === 'blocked', 'CSP blocks a deliberate fetch() to a remote host')
 await page.waitForFunction(() => window.__csp.length > 0, null, { timeout: 3000 }).catch(() => {});
 const csp = await page.evaluate(() => window.__csp);
 check(csp.length === 1 && csp[0].startsWith('connect-src'), `only the deliberate request violated CSP (${csp.join(' | ')})`);
+await page.getByRole('button', { name: 'Close story' }).click();
+await page.getByTestId('receipt-recheck').click();
+const blockedLine = await page.getByTestId('receipt-blocked').innerText();
+check(/^1 attempt \(example\.com\)$/.test(blockedLine) && !/collect/.test(blockedLine), `privacy receipt surfaces the blocked attempt by host only (${blockedLine})`);
+check((await page.getByTestId('receipt-external').innerText()) === 'none' && (await page.getByTestId('receipt-stored').innerText()) === 'nothing', 'privacy receipt still shows no external requests and nothing stored');
 check(external.length === 0, `no request left ${app} (${external.length} external${external.length ? ': ' + external.join(' | ') : ''})`);
 const storage = await page.evaluate(() => [localStorage.length, sessionStorage.length, document.cookie.length, indexedDB.databases ? 'idb' : '']);
 check(storage[0] === 0 && storage[1] === 0 && storage[2] === 0, 'nothing written to localStorage, sessionStorage or cookies');
