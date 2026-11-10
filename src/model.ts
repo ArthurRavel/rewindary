@@ -3,6 +3,8 @@
  * Adapters deliberately keep the minimum needed for the story: no IP addresses,
  * device names, countries, URLs or search terms are ever stored.
  */
+import type { IgnoredFile } from './diagnose';
+
 export type SourceId = 'spotify' | 'youtube' | 'netflix' | 'google';
 
 export type EventKind =
@@ -45,8 +47,8 @@ export interface ParseReport {
 export interface IngestResult {
   events: LifeEvent[];
   reports: ParseReport[];
-  /** Files we looked at but did not recognise. */
-  ignored: string[];
+  /** Files we looked at but did not recognise, each with a hint about what to drop instead. */
+  ignored: IgnoredFile[];
   profiles: string[];
 }
 

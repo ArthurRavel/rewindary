@@ -139,6 +139,23 @@ check(storage[0] === 0 && storage[1] === 0 && storage[2] === 0, 'nothing written
 const unexpected = errors.filter((e) => !/example\.com|Content Security Policy|Failed to fetch/.test(e));
 check(unexpected.length === 0, `no page errors${unexpected.length ? ': ' + unexpected.join(' | ') : ''}`);
 
+console.log('Unrecognised exports');
+writeFileSync(join(dir, 'takeout-20261110T101500Z-001.zip'), zipSync({
+  'Takeout/archive_browser.html': new TextEncoder().encode('<html></html>'),
+  'Takeout/YouTube and YouTube Music/subscriptions/subscriptions.csv': new TextEncoder().encode('Channel Id,Channel Url,Channel Title'),
+}));
+await page.goto(app);
+await page.getByTestId('file-input').setInputFiles(join(dir, 'takeout-20261110T101500Z-001.zip'));
+await page.getByTestId('ignored').waitFor();
+const ignoredText = await page.getByTestId('ignored').innerText();
+check(/takeout-20261110T101500Z-001\.zip/.test(ignoredText) && /YouTube data but no watch or search history/.test(ignoredText) && /split into several zips/.test(ignoredText), 'a Takeout part without history explains what to re-export');
+check(await page.getByText('No supported history found').isVisible() && (await page.getByTestId('play').count()) === 0, 'nothing to play when no history was found');
+await snap('review-ignored');
+await page.getByTestId('add-files').setInputFiles(join(dir, 'ViewingActivity.csv'));
+await page.getByTestId('play').waitFor();
+check((await page.getByTestId('ignored').count()) === 1 && /Netflix viewing activity/.test(await page.getByTestId('reports').innerText()), 'the missing export can be added from the same screen, keeping the note');
+check(external.length === 0, `still no request left ${app} after the unrecognised upload`);
+
 await browser.close();
 local?.server.close();
 if (failures) {

@@ -4,6 +4,7 @@ import { isSpotifyAccount, isSpotifyExtended, parseSpotifyAccount, parseSpotifyE
 import { looksLikeNetflixCsv, parseNetflixActivity, parseNetflixSimple } from './parsers/netflix';
 import { estimateYouTubeDurations, isGoogleActivity, looksLikeGoogleActivityHtml, parseGoogleActivity } from './parsers/google';
 import { parseCsv, stripBom } from './parsers/text';
+import { entrySignals, explainFile, explainZip, type IgnoredFile, type Signal } from './diagnose';
 
 /** Anything with a name and the Blob reading API (File in browsers, File/Blob in Node ≥ 20). */
 export interface InputBlob {
@@ -27,10 +28,12 @@ export function isInterestingPath(path: string): boolean {
 type Progress = (msg: string) => void;
 interface TextFile { path: string; text: string }
 
-async function unzipInteresting(blob: InputBlob, onProgress: Progress): Promise<TextFile[]> {
+async function unzipInteresting(blob: InputBlob, onProgress: Progress, signals: Set<Signal>): Promise<TextFile[]> {
   const files: TextFile[] = [];
   const pending: Promise<void>[] = [];
   const unzip = new Unzip((entry) => {
+    // Names only: they say which service the archive came from if no history is found.
+    for (const s of entrySignals(entry.name)) signals.add(s);
     if (!isInterestingPath(entry.name)) return;
     const chunks: Uint8Array[] = [];
     pending.push(
@@ -139,17 +142,19 @@ export function mergeParsed(parsed: Parsed[]): Omit<IngestResult, 'ignored'> {
 
 export async function ingestFiles(blobs: InputBlob[], onProgress: Progress = () => {}): Promise<IngestResult> {
   const parsed: Parsed[] = [];
-  const ignored: string[] = [];
+  const ignored: IgnoredFile[] = [];
   for (const blob of blobs) {
-    const texts: TextFile[] = /\.zip$/i.test(blob.name)
-      ? await unzipInteresting(blob, onProgress)
+    const zip = /\.zip$/i.test(blob.name);
+    const signals = new Set<Signal>();
+    const texts: TextFile[] = zip
+      ? await unzipInteresting(blob, onProgress, signals)
       : [{ path: blob.name, text: await blob.text() }];
-    if (/\.zip$/i.test(blob.name) && texts.length === 0) ignored.push(blob.name);
+    if (zip && texts.length === 0) ignored.push({ file: blob.name, hint: explainZip(blob.name, signals) });
     for (const f of texts) {
       onProgress(`Reading ${f.path.split('/').pop()}`);
       const p = parseTextFile(f.path, f.text);
       if (p) parsed.push(p);
-      else ignored.push(f.path);
+      else ignored.push({ file: f.path, hint: explainFile(f.path, isInterestingPath(f.path)) });
     }
   }
   return { ...mergeParsed(parsed), ignored };

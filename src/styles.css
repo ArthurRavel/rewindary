@@ -77,7 +77,9 @@ button:focus-visible, .button:focus-within, .drop:focus-within, input:focus-visi
 .reports li { display: flex; align-items: baseline; background: var(--card); border: 1px solid var(--line); padding: .8rem 1rem; border-radius: 14px; }
 .reports small { display: block; color: var(--dim); word-break: break-all; margin-top: .2rem; }
 .reports small.warn { color: var(--netflix); word-break: normal; }
-.reports .ignored { opacity: .6; }
+.reports .ignored { border-style: dashed; }
+.reports .ignored b { font-weight: 600; color: var(--dim); }
+.reports .ignored .hint { margin: .45rem 0 0; max-width: 60ch; line-height: 1.45; text-wrap: pretty; }
 .controls { display: grid; gap: 1rem; margin-top: 1.5rem; }
 .controls > label { display: grid; gap: .4rem; font-weight: 700; }
 select { font: inherit; padding: .6rem .8rem; border-radius: 12px; background: var(--card); color: var(--fg); border: 1px solid var(--line); max-width: 260px; }
