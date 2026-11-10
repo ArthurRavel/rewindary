@@ -104,3 +104,19 @@ This is a story-only change. Share cards and their redaction are untouched.
 
 ### Verified (local)
 `corepack pnpm@9.15.0 verify` exited 0 after the review fixes: `tsc --noEmit` clean · 50/50 Vitest tests in 6 files (9 new: 7 for `compareYears`, 1 for the change formatter, 1 for the two-year demo) · production build · dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present") · 22/22 browser E2E checks under `/rewindary/`, including the new one: the demo's year-over-year slide shows "+21%", "Compared with 2024", the "Jan 1 to Dec 29" window and three per-source rows. The slide was inspected at 1440×900 and 390×844, with and without reduced motion: no horizontal or vertical overflow.
+
+## Day 2, cycle 3 — 2026-11-10 (scheduled cycle, ~13:25 Europe/Paris)
+
+**Counts (verified at 13:28 CET via the public GitHub API):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 open issues, 0 open PRs. `main` was clean at `2cdde27` and the live Pages site responded.
+
+### Decision: explain files that hold no usable history
+The likeliest way a real visitor fails is by dropping the wrong export: a Takeout without the YouTube "history" box ticked, one part of a split Takeout, Spotify's technical log or account details, or a Netflix report without `ViewingActivity.csv`. Until now the review screen only said "Not recognised, ignored", and when nothing was recognised it showed no actions at all, so the only way out was a reload. Now each ignored file says what it was and what to request instead, and "Add more files" and "Start over" stay available. The diagnosis reads only file and archive-entry names (it never inflates anything extra), keeps a handful of service flags, and the hints contain no file content or URLs.
+
+### Failures and notes
+- No web search was available this cycle, so localized Takeout file names could not be checked. The hints only rely on English folder names, and anything else falls back to a generic message.
+- The first test for mixed input used a hand-written watch-history row that didn't match the real Takeout shape. It now uses the existing fixture.
+- Self-review against `main` found that a review screen with nothing recognised had no actions, which mattered more now that the hint says "drop the other parts too". This was fixed, and the E2E adds the missing export from that same screen.
+- `pnpm` is not on the PATH here, so commands ran as `corepack pnpm@9.15.0 …`. GitHub Actions still cannot start (account locked for billing) and there is no workflow, so CI was not run. No billing or security setting was touched.
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 after the review fix: `tsc --noEmit` clean · 59/59 Vitest tests in 7 files (9 new in `tests/diagnose.test.ts`) · production build · dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present") · 26/26 browser E2E checks under `/rewindary/` (4 new: the Takeout-part hint, nothing to play, adding the missing export from the same screen, still zero external requests). The review screen with three ignored files was inspected at 1440×900 and 390×844 with reduced motion, with no horizontal overflow.
