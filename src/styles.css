@@ -114,6 +114,15 @@ input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent
 .rows li { display: flex; align-items: center; gap: .6rem; font-size: 1.05rem; }
 .rows li i { width: .8rem; height: .8rem; border-radius: 50%; }
 .rows li b { margin-left: auto; font-variant-numeric: tabular-nums; }
+/* Year over year: last year's bar in a muted track, this year's in the source colour beneath it. */
+.vs { list-style: none; padding: 0; margin: 1.2rem 0 1rem; display: grid; gap: .9rem; }
+.vs li { display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; column-gap: .75rem; row-gap: .4rem; font-size: 1.05rem; }
+.vs-name { display: flex; align-items: center; gap: .6rem; }
+.vs-name i { width: .8rem; height: .8rem; border-radius: 50%; }
+.vs-hours { color: var(--dim); font-size: .9rem; font-variant-numeric: tabular-nums; }
+.vs li b { font-variant-numeric: tabular-nums; min-width: 3.4rem; text-align: right; }
+.vs-bars { grid-column: 1 / -1; display: grid; gap: 3px; }
+.vs-bars span { display: block; height: 6px; border-radius: 3px; background: #ffffff38; transform-origin: left; }
 .legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin: 1rem 0 0; color: var(--dim); }
 .legend i { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; margin-right: .4rem; }
 .clock { width: 100%; max-width: 340px; margin: 0 auto 1rem; display: block; overflow: visible; }

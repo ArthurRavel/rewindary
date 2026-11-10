@@ -36,8 +36,9 @@ export function demoFiles(year = 2025, seed = 7): DemoFile[] {
   const tracks = ARTISTS.map((a) => Array.from({ length: 8 }, () => `${pick(WORDS)} ${pick(WORDS)}`).map((t) => [a, t] as const));
 
   const spotify: object[] = [];
-  const watch: object[] = [];
-  const search: object[] = [];
+  type Activity = Record<string, unknown> & { time: string };
+  const watch: Activity[] = [];
+  const search: Activity[] = [];
   const netflix: string[][] = [['Profile Name', 'Start Time', 'Duration', 'Attributes', 'Title', 'Supplemental Video Type', 'Device Type', 'Bookmark', 'Latest Bookmark', 'Country']];
   const episodeCursor = new Map<string, number>();
 
@@ -91,37 +92,49 @@ export function demoFiles(year = 2025, seed = 7): DemoFile[] {
     }
   };
 
-  for (let d = new Date(year, 0, 1); d.getFullYear() === year; d = new Date(year, d.getMonth(), d.getDate() + 1)) {
-    const m = d.getMonth();
-    const wd = (d.getDay() + 6) % 7;
-    const weekend = wd >= 5;
-    if (m === 7 && d.getDate() >= 9 && d.getDate() <= 17) continue; // an offline summer week
-    const summer = m >= 5 && m <= 7 ? 1.5 : 1;
-    const winter = m <= 1 || m >= 10 ? 1.6 : 1;
-    const at = (h: number, min: number) => new Date(year, m, d.getDate(), h, min);
-    if (!weekend && r() < 0.75) listen(at(8, Math.floor(r() * 20)), 25 + r() * 25 * summer);
-    if (r() < 0.45 * summer) listen(at(weekend ? 14 : 18, Math.floor(r() * 50)), 30 + r() * 70 * summer);
-    if (r() < 0.25) listen(at(21, Math.floor(r() * 50)), 30 + r() * 60);
-    if (!weekend && r() < 0.3) podcast(at(12, 30));
-    if (r() < 0.6) youtube(at(r() < 0.3 ? 23 : 21, Math.floor(r() * 50)), 2 + Math.floor(r() * 6));
-    if (r() < 0.12) youtube(at(0, 30 + Math.floor(r() * 20)), 2 + Math.floor(r() * 4));
-    if (weekend && r() < 0.55 * winter) watchShow(at(20, Math.floor(r() * 40)), 2 + Math.floor(r() * 4 * winter));
-    else if (!weekend && r() < 0.28 * winter) watchShow(at(21, 30), 1 + Math.floor(r() * 2));
-    if (wd === 4 && r() < 0.15) {
-      const ms = (95 + Math.floor(r() * 40)) * 60_000;
-      netflix.push(['Sam', utc(at(20, 45)), hms(ms), '', pick(FILMS), '', 'Synthetic TV', hms(ms), hms(ms), 'ZZ (Demo)']);
+  /** One synthetic year. `scale` < 1 skips that share of days, for a quieter year. */
+  const simulateYear = (year: number, scale: number) => {
+    for (let d = new Date(year, 0, 1); d.getFullYear() === year; d = new Date(year, d.getMonth(), d.getDate() + 1)) {
+      if (scale < 1 && r() > scale) continue;
+      const m = d.getMonth();
+      const wd = (d.getDay() + 6) % 7;
+      const weekend = wd >= 5;
+      if (m === 7 && d.getDate() >= 9 && d.getDate() <= 17) continue; // an offline summer week
+      const summer = m >= 5 && m <= 7 ? 1.5 : 1;
+      const winter = m <= 1 || m >= 10 ? 1.6 : 1;
+      const at = (h: number, min: number) => new Date(year, m, d.getDate(), h, min);
+      if (!weekend && r() < 0.75) listen(at(8, Math.floor(r() * 20)), 25 + r() * 25 * summer);
+      if (r() < 0.45 * summer) listen(at(weekend ? 14 : 18, Math.floor(r() * 50)), 30 + r() * 70 * summer);
+      if (r() < 0.25) listen(at(21, Math.floor(r() * 50)), 30 + r() * 60);
+      if (!weekend && r() < 0.3) podcast(at(12, 30));
+      if (r() < 0.6) youtube(at(r() < 0.3 ? 23 : 21, Math.floor(r() * 50)), 2 + Math.floor(r() * 6));
+      if (r() < 0.12) youtube(at(0, 30 + Math.floor(r() * 20)), 2 + Math.floor(r() * 4));
+      if (weekend && r() < 0.55 * winter) watchShow(at(20, Math.floor(r() * 40)), 2 + Math.floor(r() * 4 * winter));
+      else if (!weekend && r() < 0.28 * winter) watchShow(at(21, 30), 1 + Math.floor(r() * 2));
+      if (wd === 4 && r() < 0.15) {
+        const ms = (95 + Math.floor(r() * 40)) * 60_000;
+        netflix.push(['Sam', utc(at(20, 45)), hms(ms), '', pick(FILMS), '', 'Synthetic TV', hms(ms), hms(ms), 'ZZ (Demo)']);
+      }
+      if (wd === 6 && r() < 0.2) watchShow(at(10, 0), 1, 'Guest');
     }
-    if (wd === 6 && r() < 0.2) watchShow(at(10, 0), 1, 'Guest');
-  }
+  };
+  simulateYear(year, 1);
   // One legendary rabbit hole and one marathon binge.
   youtube(new Date(year, 2, 22, 22, 10), 31);
   watchShow(new Date(year, 10, 15, 13, 0), 9);
+  // A quieter year before, so the demo can show a year-over-year comparison. Generated last
+  // so the main year's numbers stay exactly as they were.
+  simulateYear(year - 1, 0.8);
+  // Takeout lists activity newest first.
+  const newestFirst = (a: Activity, b: Activity) => b.time.localeCompare(a.time);
+  watch.sort(newestFirst);
+  search.sort(newestFirst);
 
   const csv = netflix.map((row) => row.map((c) => (/[",]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n');
   return [
-    { name: `Spotify Extended Streaming History/Streaming_History_Audio_${year}.json`, text: JSON.stringify(spotify) },
-    { name: 'Takeout/YouTube and YouTube Music/history/watch-history.json', text: JSON.stringify(watch.reverse()) },
-    { name: 'Takeout/YouTube and YouTube Music/history/search-history.json', text: JSON.stringify(search.reverse()) },
+    { name: `Spotify Extended Streaming History/Streaming_History_Audio_${year - 1}-${year}.json`, text: JSON.stringify(spotify) },
+    { name: 'Takeout/YouTube and YouTube Music/history/watch-history.json', text: JSON.stringify(watch) },
+    { name: 'Takeout/YouTube and YouTube Music/history/search-history.json', text: JSON.stringify(search) },
     { name: 'netflix-report/CONTENT_INTERACTION/ViewingActivity.csv', text: csv + '\n' },
   ];
 }

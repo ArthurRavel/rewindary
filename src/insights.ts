@@ -49,6 +49,77 @@ export interface Insights {
   /** Time music/podcasts played while a video or show was also playing. */
   overlapMs: number;
   persona: Persona;
+  /** The selected year against the same dates of the year before (null when not comparable). */
+  vsLastYear: YearChange | null;
+}
+
+export interface YearChange {
+  prevYear: number;
+  /** Last calendar day counted in both years; null when both full years are compared. */
+  through: { month: number; date: number } | null;
+  ms: number;
+  prevMs: number;
+  sources: { source: SourceId; ms: number; prevMs: number }[];
+  /** True when some counted time is estimated (YouTube, quick Netflix CSV). */
+  estimated: boolean;
+}
+
+/**
+ * Media time in `year` against the same calendar stretch of the year before.
+ * A source only counts when its history reaches back to January of that earlier year, so a
+ * 12-month export or a service you joined mid-year does not read as growth. Both years stop
+ * at the date where the stalest source's history ends, so an unfinished year or an older
+ * export is never compared against a complete one.
+ */
+export function compareYears(all: LifeEvent[], year: number): YearChange | null {
+  const prevStart = new Date(year - 1, 0, 1).getTime();
+  const coveredBy = new Date(year - 1, 1, 1).getTime();
+  const yearStart = new Date(year, 0, 1).getTime();
+  const nextStart = new Date(year + 1, 0, 1).getTime();
+  const span = new Map<SourceId, { first: number; last: number; continues: boolean }>();
+  for (const e of all) {
+    if (e.kind === 'search' || e.ms <= 0) continue;
+    const s = span.get(e.source) ?? { first: Infinity, last: -Infinity, continues: false };
+    s.first = Math.min(s.first, e.t);
+    if (e.t >= nextStart) s.continues = true;
+    else if (e.t >= yearStart) s.last = Math.max(s.last, e.t);
+    span.set(e.source, s);
+  }
+  const comparable = [...span].filter(([, s]) => s.first < coveredBy && s.last >= yearStart);
+  if (!comparable.length) return null;
+
+  let through: YearChange['through'] = null;
+  for (const [, s] of comparable) {
+    if (s.continues) continue;
+    const d = new Date(s.last);
+    if (!through || d.getMonth() < through.month || (d.getMonth() === through.month && d.getDate() < through.date)) through = { month: d.getMonth(), date: d.getDate() };
+  }
+  if (through && through.month === 11 && through.date === 31) through = null; // that is the full year
+  if (through && through.month === 0) return null; // less than a month to compare
+  // Exclusive end in a given year; clamped to the month so Feb 29 does not spill into March.
+  const endOf = (y: number) => (through ? Math.min(new Date(y, through.month, through.date + 1).getTime(), new Date(y, through.month + 1, 1).getTime()) : new Date(y + 1, 0, 1).getTime());
+  const curEnd = endOf(year);
+  const prevEnd = endOf(year - 1);
+
+  const keep = new Set(comparable.map(([k]) => k));
+  const tally = new Map<SourceId, { ms: number; prevMs: number }>();
+  let estimated = false;
+  for (const e of all) {
+    if (e.kind === 'search' || !keep.has(e.source)) continue;
+    const inCur = e.t >= yearStart && e.t < curEnd;
+    if (!inCur && !(e.t >= prevStart && e.t < prevEnd)) continue;
+    const s = tally.get(e.source) ?? { ms: 0, prevMs: 0 };
+    if (inCur) s.ms += e.ms;
+    else s.prevMs += e.ms;
+    estimated ||= e.est;
+    tally.set(e.source, s);
+  }
+  const sources = SOURCE_ORDER.filter((k) => tally.has(k)).map((source) => ({ source, ...tally.get(source)! }));
+  const ms = sources.reduce((n, s) => n + s.ms, 0);
+  const prevMs = sources.reduce((n, s) => n + s.prevMs, 0);
+  // Below an hour last year, any percentage would be noise.
+  if (prevMs < 3_600_000) return null;
+  return { prevYear: year - 1, through, ms, prevMs, sources, estimated };
 }
 
 const DAY = 86_400_000;
@@ -264,5 +335,6 @@ export function computeInsights(all: LifeEvent[], year: number | null): Insights
     marathon: longestSession(events.filter((e) => e.source === 'spotify' && e.kind === 'music'), 10 * 60_000, false),
     overlapMs: overlap(union(audio), union(video)),
     persona: persona(shares, nightShare, weekendShare, timedMs ? morningMs / timedMs : 0),
+    vsLastYear: year === null ? null : compareYears(all, year),
   };
 }

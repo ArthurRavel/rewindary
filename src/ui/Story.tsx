@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { SOURCE_COLOR } from '../charts';
-import { dayLabel, duration, hourLabel, hours, monthName, num, pct } from '../format';
+import { change, dayLabel, duration, hourLabel, hours, monthName, num, pct, shortDate } from '../format';
 import type { Insights } from '../insights';
 import { dayNumber } from '../insights';
 import type { SourceId } from '../model';
@@ -101,6 +101,35 @@ export function buildSlides(ins: Insights): Slide[] {
       </ul>
     </>),
   });
+  const vs = ins.vsLastYear;
+  if (vs) {
+    const max = Math.max(...vs.sources.flatMap((s) => [s.ms, s.prevMs]), 1);
+    const span = vs.through ? `from Jan 1 to ${shortDate(vs.through.month, vs.through.date)} in both years` : `across both full years`;
+    slides.push({
+      id: 'change', tone: 'mix',
+      body: (<>
+        <h2 class="big rise">Compared with {vs.prevYear}</h2>
+        <p class="mega rise" style="animation-delay:150ms" data-testid="change-total">{change(vs.ms, vs.prevMs)}</p>
+        <p class="lead rise" style="animation-delay:300ms">{hours(vs.ms)} hours against {hours(vs.prevMs)}, counted {span}.</p>
+        {vs.sources.length > 1 && (
+          <ul class="vs rise" style="animation-delay:450ms">
+            {vs.sources.map((s, k) => (
+              <li key={s.source}>
+                <span class="vs-name"><i style={`background:${SOURCE_COLOR[s.source]}`} />{SOURCE_LABEL[s.source]}</span>
+                <span class="vs-hours"><span aria-hidden="true">{hours(s.prevMs)} → {hours(s.ms)} h</span><span class="sr-only">{hours(s.prevMs)} hours in {vs.prevYear}, {hours(s.ms)} hours now</span></span>
+                <b>{change(s.ms, s.prevMs)}</b>
+                <span class="vs-bars" aria-hidden="true">
+                  <span class="grow" style={`width:${(s.prevMs / max) * 100}%;animation-delay:${550 + k * 120}ms`} />
+                  <span class="grow" style={`width:${(s.ms / max) * 100}%;background:${SOURCE_COLOR[s.source]};animation-delay:${610 + k * 120}ms`} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {vs.estimated && <p class="note rise" style="animation-delay:700ms">Some durations are estimated, with the same rules in both years.</p>}
+      </>),
+    });
+  }
   if (media.some((s) => s.ms > 0)) slides.push({
     id: 'clock', tone: 'mix',
     body: (<>
