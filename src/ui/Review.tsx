@@ -2,6 +2,7 @@ import { num } from '../format';
 import { availableYears } from '../insights';
 import type { IngestResult, SourceId } from '../model';
 import { SOURCE_LABEL, SOURCE_ORDER } from '../model';
+import { PrivacyReceipt } from './Receipt';
 
 export interface Filters { year: number | null; off: Set<SourceId>; profiles: Set<string> }
 
@@ -62,6 +63,7 @@ export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget,
           <button class="ghost" onClick={onForget}>Forget everything</button>
         </div>
       </>)}
+      <PrivacyReceipt entries={data.events.length + data.reports.length} />
     </main>
   );
 }
