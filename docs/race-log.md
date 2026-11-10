@@ -140,3 +140,6 @@ Google Takeout names its folders and files in the account's language. The import
 
 ### Verified (local)
 `corepack pnpm@9.15.0 verify` exited 0 on the feature branch (`c264a32`) after the review fixes: `tsc --noEmit` clean · 67/67 Vitest tests in 8 files (8 new in `tests/localized-takeout.test.ts`) · production build (72.09 kB JS, 21.71 kB worker) · dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present") · 29 browser E2E checks passed under `/rewindary/`, including a new one that uploads a Takeout with French file names and checks it is read with no stray notes and no external request. The review screen after a French Takeout was inspected at 1440×900 (no reduced motion) and 390×844 (reduced motion): `scrollWidth` equals `clientWidth` at both, so no horizontal overflow. The UI itself is unchanged.
+
+### Deployed
+Feature merged into `main` as `fa30f22`. The verified `dist/` was published to `gh-pages` as app commit `acc6bcc`, plus a metadata-only commit `a72f35d` that preserves `.nojekyll`. The GitHub Pages legacy build for `a72f35d` reached `built` at 17:44:15Z with no error. The live site returned HTTP 200 and served `index-UB4hAvWo.js`. The live E2E run passed all 29 checks, including the localized Takeout check and zero external requests.
