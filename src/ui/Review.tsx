@@ -30,11 +30,20 @@ export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget,
             </div>
           </li>
         ))}
-        {data.ignored.map((f) => <li key={f} class="ignored"><i class="dot" /><div>Not recognised, ignored<small>{f}</small></div></li>)}
+        {data.ignored.map((f, i) => (
+          <li key={`${i}-${f.file}`} class="ignored" data-testid="ignored">
+            <i class="dot" />
+            <div>
+              <b>Not recognised, ignored</b>
+              <small>{f.file}</small>
+              <p class="hint">{f.hint}</p>
+            </div>
+          </li>
+        ))}
       </ul>
       {data.events.length === 0 ? (
-        <p class="error">No supported history found. Check the export guides on the start page.</p>
-      ) : (<>
+        <p class="error">No supported history found. The notes above say what each file was; the export guides on the start page list what to request.</p>
+      ) : (
         <div class="controls">
           <label>Period
             <select value={filters.year === null ? 'all' : String(filters.year)} onChange={(e) => { const v = (e.target as HTMLSelectElement).value; setFilters({ ...filters, year: v === 'all' ? null : Number(v) }); }} data-testid="year">
@@ -57,12 +66,12 @@ export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget,
             </fieldset>
           )}
         </div>
-        <div class="actions">
-          <button class="primary" onClick={onPlay} disabled={!usable} data-testid="play">Play my story</button>
-          <label class="ghost button">Add more files<input type="file" multiple accept=".zip,.json,.csv,.html,.htm" class="sr-only" onChange={(e) => { const el = e.currentTarget; const l = el.files ? [...el.files] : []; el.value = ''; if (l.length) onAddMore(l); }} /></label>
-          <button class="ghost" onClick={onForget}>Forget everything</button>
-        </div>
-      </>)}
+      )}
+      <div class="actions">
+        {data.events.length > 0 && <button class="primary" onClick={onPlay} disabled={!usable} data-testid="play">Play my story</button>}
+        <label class="ghost button">Add more files<input type="file" multiple accept=".zip,.json,.csv,.html,.htm" class="sr-only" onChange={(e) => { const el = e.currentTarget; const l = el.files ? [...el.files] : []; el.value = ''; if (l.length) onAddMore(l); }} data-testid="add-files" /></label>
+        <button class="ghost" onClick={onForget}>{data.events.length > 0 ? 'Forget everything' : 'Start over'}</button>
+      </div>
       <PrivacyReceipt entries={data.events.length + data.reports.length} />
     </main>
   );

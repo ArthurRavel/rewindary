@@ -43,7 +43,8 @@ describe('ingestFiles', () => {
   it('collects Netflix profiles and lists unrecognised files', async () => {
     const r = await ingestFiles([file('ViewingActivity.csv', fixture('netflix/ViewingActivity.csv')), file('random.csv', 'a,b\n1,2')]);
     expect(r.profiles).toEqual(['Guest', 'Sam']);
-    expect(r.ignored).toEqual(['random.csv']);
+    expect(r.ignored.map((f) => f.file)).toEqual(['random.csv']);
+    expect(r.ignored[0].hint).toMatch(/Not a Spotify, YouTube, Google Search or Netflix history file/);
   });
 });
 
