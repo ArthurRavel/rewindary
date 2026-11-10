@@ -1,10 +1,13 @@
 import { useState } from 'preact/hooks';
+import { FOLDER_PICKER, fromInput, type Picked } from './folders';
 import { GUIDES } from './guides';
 import { Icon, Mark } from './Icon';
 
-export function Home({ onFiles, onDemo, status, error }: { onFiles: (f: File[]) => void; onDemo: () => void; status: string | null; error: string | null }) {
+export function Home({ onFiles, onDrop, onDemo, status, error }: {
+  onFiles: (f: Picked[]) => void; onDrop: (dt: DataTransfer) => void; onDemo: () => void; status: string | null; error: string | null;
+}) {
   const [drag, setDrag] = useState(false);
-  const pick = (list: FileList | null) => list && list.length && onFiles([...list]);
+  const pick = (el: HTMLInputElement) => { const l = fromInput(el.files); el.value = ''; if (l.length) onFiles(l); };
   return (
     <main class="home">
       <header class="hero">
@@ -16,13 +19,17 @@ export function Home({ onFiles, onDemo, status, error }: { onFiles: (f: File[]) 
         class={`drop${drag ? ' drag' : ''}${status ? ' busy' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer?.files ?? null); }}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); if (e.dataTransfer) onDrop(e.dataTransfer); }}
       >
-        <input type="file" multiple accept=".zip,.json,.csv,.html,.htm" onChange={(e) => { const el = e.currentTarget; pick(el.files); el.value = ''; }} data-testid="file-input" />
+        <input type="file" multiple accept=".zip,.json,.csv,.html,.htm" onChange={(e) => pick(e.currentTarget)} data-testid="file-input" />
         <span class="drop-icon" aria-hidden="true">{!status && <Icon name="upload" size={24} />}</span>
         <span class="drop-title">{status ?? 'Drop your export .zip files here'}</span>
         <span class="drop-sub">{status ? 'Working locally…' : 'or click to choose — Spotify, Google Takeout and Netflix zips, or the JSON/CSV/HTML files inside'}</span>
       </label>
+      <p class="folder-pick fine">
+        Already unzipped? Drop the folder, or{' '}
+        <label class="link">choose a folder<input type="file" {...FOLDER_PICKER} class="sr-only" onChange={(e) => pick(e.currentTarget)} data-testid="folder-input" /></label>.
+      </p>
       <p class="sr-only" role="status">{status ?? ''}</p>
       {error && <p class="error" role="alert">{error}</p>}
       <div class="actions center">

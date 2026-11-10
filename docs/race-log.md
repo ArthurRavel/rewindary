@@ -143,3 +143,37 @@ Google Takeout names its folders and files in the account's language. The import
 
 ### Deployed
 Feature merged into `main` as `fa30f22`. The verified `dist/` was published to `gh-pages` as app commit `acc6bcc`, plus a metadata-only commit `a72f35d` that preserves `.nojekyll`. The GitHub Pages legacy build for `a72f35d` reached `built` at 17:44:15Z with no error. The live site returned HTTP 200 and served `index-UB4hAvWo.js`. The live E2E run passed all 29 checks, including the localized Takeout check and zero external requests.
+
+## Day 2, cycle 5 — 2026-11-10/11 (scheduled cycle, started ~23:50 Europe/Paris)
+
+**Counts (as supplied at the start of the cycle, not re-queried by this run):** Rewindary 0 stars, 0 forks, 0 issues, 0 PRs. `main` was clean at `36d68e1`.
+
+### Decision: read unzipped export folders
+Safari on macOS unzips downloads by default, so a Mac user often has a `Takeout/` or `Spotify Extended Streaming History/` folder rather than the zip. On `main`, dropping a folder failed the whole import. A real drop of a folder into a build of `main` (Chromium, via the DevTools protocol) showed "Could not read these files: A requested file or directory could not be found…". Now:
+- **Drop a folder** on the start page. The page walks it with the File and Directory Entries API, in batches, with a "Listing folder… N files" status.
+- **Or choose a folder.** "Choose a folder" is on the start page and "Add a folder" on the review screen. Both use `webkitdirectory` and are hidden on touch-only devices, where folder picking isn't available.
+- **The same rules apply inside a folder as inside a zip.** Known history names are read in full. Other `.json`/`.html` files are peeked at (first 32 KB). Media and other files are never opened, and Google Photos sidecars (`IMG_0001.jpg.json`, `….supplemental-metadata.json`) are skipped by name. A zip inside a folder is read as a zip. A folder with no history gets one note (for example the "Takeout has YouTube data but no history" hint), and a dropped folder with nothing readable says so on the start page.
+
+Loose files and zips behave as before. Share cards, redaction and the privacy surface are unchanged. Files are still read only by the browser, with no network.
+
+### Failures and notes
+- **The first version was slow on big Takeouts.** A scratch run with 20,000 photo sidecars took 15.4 s when dropped and 12.8 s through the picker, because the reads were serial. Bounded parallel reads (32 at a time) brought that to about 10 s. Skipping sidecars by name brought the drop to 0.3 s and the picker to 4.4 s (about 2.2 s of that is Playwright's own `setInputFiles`). These are scratch measurements on this machine, not part of the gate.
+- **Self-review against `main` found and fixed:**
+  - Making the probe limit apply to every file would have capped known history files too. It now caps only peeked files.
+  - An unreadable *peeked* file would have failed the whole import. It is now skipped, while an unreadable history-named file still fails loudly (both are tested).
+  - The folder drop was only covered by a scratch script. The E2E now drops real directories through Chromium's DevTools protocol, because Playwright cannot drop directories.
+- **Known limitations:**
+  - The drop path is verified in Chromium only. Safari and Firefox were not run, and the Safari auto-unzip default is stated from platform knowledge, not re-checked this cycle.
+  - When nothing can be read, a dropped folder shows a start-page error but a chosen folder shows a review note: drops skip non-export names before reaching the parser.
+- A `vite preview` process on port 4174, running since 9 Nov, was not started by this cycle and was left alone.
+- `pnpm` is not on the PATH here, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run.** No billing or security setting was touched. Nothing was merged or deployed by this run.
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `feat/folder-import` after the review fixes:
+- `tsc --noEmit` clean
+- 82/82 Vitest tests in 9 files (15 new in `tests/folders.test.ts`)
+- production build (73.96 kB JS, 28.04 kB gzipped; 23.59 kB worker)
+- dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present")
+- 34/34 browser E2E checks under `/rewindary/`, 5 of them new: the start page offers folders, a picked Takeout folder, a second folder added from review, a real dropped folder (150 photos, so more than one directory batch) and a dropped photos-only folder. The existing "no request left" check reran after the folder uploads, and every run made zero external requests.
+
+The start page and review screen were inspected at 1440×900 and 390×844 (reduced motion at 390): `scrollWidth` equals `clientWidth` at both. With touch emulation the folder options are hidden and Tab skips them. The Impeccable detector flagged only the existing gradient text, not this change.

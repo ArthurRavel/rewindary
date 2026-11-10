@@ -152,6 +152,44 @@ const frReports = await page.getByTestId('reports').innerText();
 check(/Takeout activity \(JSON\)/.test(frReports) && (await page.getByTestId('ignored').count()) === 0, 'a Takeout with French file names is read by content, with no note about the photo sidecar');
 check(external.length === 0, `still no request left ${app} after the French Takeout`);
 
+console.log('Unzipped folders');
+// Safari on macOS unzips downloads by default, so exports often arrive as folders. These go through the real folder pickers.
+const put = (path, data) => { mkdirSync(join(dir, path, '..'), { recursive: true }); writeFileSync(join(dir, path), data); };
+put('folders/Takeout/archive_browser.html', '<html></html>');
+put('folders/Takeout/YouTube and YouTube Music/history/watch-history.html', fx('google/watch-history.html'));
+put('folders/Takeout/Google Photos/Trip/IMG_0001.jpg', new Uint8Array(50_000));
+put('folders/Takeout/Google Photos/Trip/IMG_0001.jpg.json', '{"title":"IMG_0001.jpg"}');
+put('folders/Spotify Extended Streaming History/Streaming_History_Audio_2024-2025_0.json', fx('spotify/Streaming_History_Audio_2024-2025_0.json'));
+await page.goto(app);
+check(await page.getByText('Already unzipped? Drop the folder').isVisible(), 'the start page offers unzipped folders');
+await page.getByTestId('folder-input').setInputFiles(join(dir, 'folders/Takeout'));
+await page.getByTestId('play').waitFor();
+const folderReports = await page.getByTestId('reports').innerText();
+check(/Takeout activity \(HTML\)/.test(folderReports) && /Takeout\/YouTube and YouTube Music\/history\/watch-history\.html/.test(folderReports) && (await page.getByTestId('ignored').count()) === 0, 'an unzipped Takeout folder is read, with its path and no note about photos');
+await page.getByTestId('add-folder').setInputFiles(join(dir, 'folders/Spotify Extended Streaming History'));
+await page.waitForFunction(() => /Spotify extended/.test(document.querySelector('[data-testid=reports]')?.textContent ?? ''));
+check((await page.getByTestId('reports').locator('li').count()) === 2 && (await page.getByTestId('ignored').count()) === 0, 'a second folder can be added from the review screen');
+// A real folder drop: Playwright cannot drop a directory, but Chromium's DevTools protocol drops real paths,
+// so the page receives genuine directory entries (more than one readEntries batch with 150 photos).
+for (let i = 0; i < 150; i++) put(`folders/Takeout/Google Photos/Trip/IMG_${i}.jpg`, 'x');
+const dropFolder = async (path) => {
+  const cdp = await ctx.newCDPSession(page);
+  const box = await page.locator('.drop').boundingBox();
+  const at = { x: box.x + box.width / 2, y: box.y + box.height / 2, data: { items: [], files: [path], dragOperationsMask: 1 } };
+  for (const type of ['dragEnter', 'dragOver', 'drop']) await cdp.send('Input.dispatchDragEvent', { type, ...at });
+  await cdp.detach();
+};
+await page.goto(app);
+await dropFolder(join(dir, 'folders/Takeout'));
+await page.getByTestId('play').waitFor();
+check(/Takeout\/YouTube and YouTube Music\/history\/watch-history\.html/.test(await page.getByTestId('reports').innerText()) && (await page.getByTestId('ignored').count()) === 0, 'a dropped Takeout folder is walked and read');
+put('folders/Only photos/IMG_0001.jpg', 'x');
+await page.goto(app);
+await dropFolder(join(dir, 'folders/Only photos'));
+await page.getByText('No .zip, .json, .csv or .html files in this folder').waitFor();
+check(await page.getByTestId('demo').isVisible(), 'a dropped folder with nothing to read says so and stays on the start page');
+check(external.length === 0, `still no request left ${app} after the folder uploads`);
+
 console.log('Unrecognised exports');
 writeFileSync(join(dir, 'takeout-20261110T101500Z-001.zip'), zipSync({
   'Takeout/archive_browser.html': new TextEncoder().encode('<html></html>'),

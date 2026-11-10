@@ -4,15 +4,34 @@ import { isSpotifyAccount, isSpotifyExtended, parseSpotifyAccount, parseSpotifyE
 import { looksLikeNetflixCsv, parseNetflixActivity, parseNetflixSimple } from './parsers/netflix';
 import { estimateYouTubeDurations, isGoogleActivity, looksLikeGoogleActivityHtml, parseGoogleActivity } from './parsers/google';
 import { parseCsv, stripBom } from './parsers/text';
-import { entrySignals, explainFile, explainZip, type IgnoredFile, type Signal } from './diagnose';
+import { entrySignals, explainFile, explainFolder, explainZip, type IgnoredFile, type Signal } from './diagnose';
 
 /** Anything with a name and the Blob reading API (File in browsers, File/Blob in Node ≥ 20). */
 export interface InputBlob {
   name: string;
   size: number;
+  /**
+   * Where the file sat inside a dropped or chosen folder, e.g. "Takeout/YouTube and YouTube Music/history/watch-history.json".
+   * Absent for files dropped on their own. Safari on macOS unzips downloads by default, so a folder is a common way exports arrive.
+   */
+  path?: string;
   stream(): ReadableStream<Uint8Array>;
   text(): Promise<string>;
+  slice(start?: number, end?: number): { text(): Promise<string> };
 }
+
+/** A File (or Blob) that came from inside a folder. Kept as a wrapper because a File's own name cannot hold a path. */
+export function inFolder(file: InputBlob, path: string): InputBlob {
+  return { name: file.name, size: file.size, path, stream: () => file.stream(), text: () => file.text(), slice: (a, b) => file.slice(a, b) };
+}
+
+/**
+ * Inside a folder, only these are ever opened; photos, videos and everything else are skipped by name.
+ * So are Google Photos sidecars ("IMG_0001.jpg.json", "IMG_0001.jpg.supplemental-metadata.json"): they are named
+ * after the photo in every language, and a big Takeout holds tens of thousands of them.
+ */
+export const isCandidateName = (name: string) =>
+  /\.(zip|json|csv|html?)$/i.test(name) && !/\.(jpe?g|png|gif|heic|heif|webp|tiff?|bmp|dng|mp4|mov|m4v|avi|3gp|mkv|webm)\.([^/]*\.)?json$/i.test(name);
 
 /** Only these entries are decompressed from archives; photos, videos etc. are never inflated. */
 export function isInterestingPath(path: string): boolean {
@@ -79,7 +98,7 @@ async function unzipInteresting(blob: InputBlob, onProgress: Progress, signals: 
                 chunks = []; // the rest of the entry is inflated and dropped without being kept
               }
             }
-            if (final && !rejected) files.push({ path: `${blob.name}/${entry.name}`, text: new TextDecoder().decode(concat(chunks)), probed: probe });
+            if (final && !rejected) files.push({ path: `${blob.path ?? blob.name}/${entry.name}`, text: new TextDecoder().decode(concat(chunks)), probed: probe });
           }
           if (final) resolve();
         };
@@ -187,15 +206,69 @@ export function mergeParsed(parsed: Parsed[]): Omit<IngestResult, 'ignored'> {
   return { events, reports, profiles: [...profiles].filter(Boolean).sort() };
 }
 
+/** Files dropped on their own are read one by one; files from one folder are read together, like the entries of a zip. */
+type Unit = { kind: 'file'; blob: InputBlob } | { kind: 'folder'; name: string; files: InputBlob[] };
+
+function groupByFolder(blobs: InputBlob[]): Unit[] {
+  const units: Unit[] = [];
+  const folders = new Map<string, InputBlob[]>();
+  for (const blob of blobs) {
+    const path = blob.path?.replace(/\\/g, '/').replace(/^\/+/, '');
+    const root = path?.includes('/') ? path.slice(0, path.indexOf('/')) : null;
+    if (!root || !path) { units.push({ kind: 'file', blob }); continue; }
+    let files = folders.get(root);
+    if (!files) {
+      files = [];
+      folders.set(root, files);
+      units.push({ kind: 'folder', name: root, files });
+    }
+    files.push(path === blob.path ? blob : inFolder(blob, path));
+  }
+  // Drop order depends on the browser and the file system; sort so reports and de-duplication are stable.
+  for (const u of units) if (u.kind === 'folder') u.files.sort((a, b) => (a.path! < b.path! ? -1 : a.path! > b.path! ? 1 : 0));
+  return units;
+}
+
+/** Folder files are read a few at a time: one by one, a Takeout with tens of thousands of photo sidecars took seconds longer. */
+const FOLDER_READS = 32;
+
+/** The same rules as for zip entries: known names are read in full, other .json/.html files are peeked at, the rest is never opened. */
+async function readFolder(files: InputBlob[], onProgress: Progress): Promise<{ texts: TextFile[]; zips: InputBlob[] }> {
+  const candidates = files.filter((f) => isCandidateName(f.path!));
+  const zips = candidates.filter((f) => /\.zip$/i.test(f.path!));
+  let probes = 0;
+  const toRead = candidates.filter((f) => isInterestingPath(f.path!) || (/\.(json|html?)$/i.test(f.path!) && probes++ < MAX_PROBES));
+  const results: (TextFile | null)[] = new Array(toRead.length).fill(null);
+  const root = files[0]?.path!.split('/')[0] ?? '';
+  let next = 0;
+  let done = 0;
+  const read = async (f: InputBlob): Promise<TextFile | null> => {
+    const path = f.path!;
+    // A known history file that cannot be read fails the import loudly, as before.
+    if (isInterestingPath(path)) return { path, text: await f.text(), probed: false };
+    // A file we only peek at must not: it is skipped, like an unreadable zip entry.
+    try {
+      return looksLikeActivityHead(await f.slice(0, PROBE_BYTES).text()) ? { path, text: await f.text(), probed: true } : null;
+    } catch {
+      return null;
+    }
+  };
+  const lane = async () => {
+    while (next < toRead.length) {
+      const i = next++;
+      results[i] = await read(toRead[i]);
+      if (++done % 500 === 0) onProgress(`Looking through ${root} — ${Math.round((done / toRead.length) * 100)}%`);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(FOLDER_READS, toRead.length) }, lane));
+  return { texts: results.filter((t): t is TextFile => t !== null), zips };
+}
+
 export async function ingestFiles(blobs: InputBlob[], onProgress: Progress = () => {}): Promise<IngestResult> {
   const parsed: Parsed[] = [];
   const ignored: IgnoredFile[] = [];
-  for (const blob of blobs) {
-    const zip = /\.zip$/i.test(blob.name);
-    const signals = new Set<Signal>();
-    const texts: TextFile[] = zip
-      ? await unzipInteresting(blob, onProgress, signals)
-      : [{ path: blob.name, text: await blob.text(), probed: false }];
+  /** Parse what a file, zip or folder held; returns how many files were kept or explained. */
+  const take = (texts: TextFile[]): number => {
     let kept = 0;
     for (const f of texts) {
       onProgress(`Reading ${f.path.split('/').pop()}`);
@@ -210,7 +283,26 @@ export async function ingestFiles(blobs: InputBlob[], onProgress: Progress = () 
         else ignored.push({ file: f.path, hint: explainFile(f.path, isInterestingPath(f.path)) });
       }
     }
-    if (zip && kept === 0) ignored.push({ file: blob.name, hint: explainZip(blob.name, signals) });
+    return kept;
+  };
+  const takeZip = async (blob: InputBlob) => {
+    const signals = new Set<Signal>();
+    if (take(await unzipInteresting(blob, onProgress, signals)) === 0) ignored.push({ file: blob.path ?? blob.name, hint: explainZip(blob.name, signals) });
+  };
+  for (const unit of groupByFolder(blobs)) {
+    if (unit.kind === 'file') {
+      const blob = unit.blob;
+      if (/\.zip$/i.test(blob.name)) await takeZip(blob);
+      else take([{ path: blob.name, text: await blob.text(), probed: false }]);
+      continue;
+    }
+    // Names only, as for zip entries: they say which service the folder came from if no history is found.
+    const signals = new Set<Signal>();
+    for (const f of unit.files) for (const s of entrySignals(f.path!)) signals.add(s);
+    const { texts, zips } = await readFolder(unit.files, onProgress);
+    // A zip inside the folder gets its own note when it holds nothing, so it counts as explained.
+    for (const z of zips) await takeZip(z);
+    if (take(texts) + zips.length === 0) ignored.push({ file: `${unit.name}/`, hint: explainFolder(signals) });
   }
   return { ...mergeParsed(parsed), ignored };
 }

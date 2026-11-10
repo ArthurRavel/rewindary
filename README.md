@@ -15,6 +15,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 ## What it does
 
 - **Three import adapters:** Spotify extended streaming history (or the 1-year account data), Google Takeout (YouTube watch and search history, Google Search activity, in JSON or HTML), and Netflix viewing activity (full data request, or the quick titles-and-dates CSV). You can drop the `.zip` files as they are; known history files are decompressed in full and photos and videos are never inflated; other `.json` and `.html` entries only have their first 32 KB looked at, and are dropped unless they open like Google activity. A Takeout in another language (French, German, Spanish… file and folder names) is read too: the importer recognises Google activity by how the file starts, not by its name.
+- **Unzipped folders work too.** Safari on macOS unzips downloads by default, so an export often arrives as a folder (`Takeout/`, `Spotify Extended Streaming History/`). Drop the folder, or use "choose a folder" (desktop browsers; the option is hidden on phones and tablets). Inside a folder the same rules apply as inside a zip: only `.zip`, `.json`, `.csv` and `.html` files are opened, Google Photos sidecars (`IMG_0001.jpg.json`) and media are skipped by name, and a folder with no history gets one note saying which export to request.
 - **One local event model.** Every source becomes the same `LifeEvent` shape (`src/model.ts`), so the metrics run across sources:
   - total hours and the share for each source
   - a 24-hour day clock stacked by source, plus your peak hour and how much happened at night
@@ -104,16 +105,17 @@ pnpm demo-gif         # re-capture screenshots from the build and regenerate doc
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 67 Vitest tests in 8 files, run in UTC.
+- `node scripts/run-tests.mjs`: 82 Vitest tests in 9 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
   - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years.
   - Redaction: all card formats and themes, review lines equal card lines, XML escaping.
   - Privacy receipt: same-origin vs external hosts, blocked attempts by host only, stored items.
   - Localized Takeouts: history under French, German and Spanish file names, the content check that decides what is kept (and that photo sidecars, bookmarks and Maps activity are not), thousands of tiny entries in one archive, stored (uncompressed) entries, and an entry with a compression method it cannot read.
+  - Unzipped folders: a Takeout folder gives the same events as its zip, photos and sidecars are never opened, unreadable peeked files are skipped, one note per folder without history, zips inside a folder, the batched directory walk.
   - Unrecognised files: Takeout with YouTube data but no history (and split parts), Takeout of other products, Spotify and Netflix exports without history, unsupported archives, history-named files that don't parse.
   - Source privacy scan.
-- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 72 KB of JS (≈27 KB gzipped) plus an 18 KB parser worker. Runtime dependencies are `preact` and `fflate`.
+- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 74 KB of JS (≈28 KB gzipped) plus a 24 KB parser worker. Runtime dependencies are `preact` and `fflate`.
 - `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle, and a strict CSP is present.
 - `node scripts/e2e.mjs`: drives the built site in headless Chromium, served under `/rewindary/` exactly like the GitHub Pages project site (any request outside that path fails the run). `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` runs the same checks against the deployed copy.
   - Runs the demo through every slide (including the year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names.
@@ -122,6 +124,7 @@ What `verify` runs, exactly:
   - Checks that the privacy receipt reports no external requests, then surfaces the deliberate blocked `fetch` by host only after "Check again".
   - Uploads a Takeout part with no history, checks the explanation and that there is nothing to play, then adds the missing export from the same screen.
   - Uploads a Takeout whose files have French names and checks that it is read with no stray notes.
+  - Picks an unzipped Takeout folder and adds a Spotify folder from the review screen, then really drops a folder (through Chromium's DevTools protocol, since Playwright cannot drop directories) and a folder holding only photos.
   - It uses `CHROME_PATH`, or a Chromium already in the Playwright cache. It downloads nothing.
 
 All fixtures in `tests/fixtures/` and all demo data are synthetic. Documentation IP addresses (`192.0.2.x`) and an invented country code `ZZ` stand in for real values.
@@ -135,13 +138,13 @@ The live site is served by GitHub Pages from the `gh-pages` branch, which holds 
 ```
 src/model.ts        unified LifeEvent model
 src/parsers/        spotify.ts · google.ts · netflix.ts · text.ts (CSV, entities, loose dates)
-src/ingest.ts       streaming unzip + format detection (by name, then by content) + merge/dedupe
+src/ingest.ts       streaming unzip + unzipped folders + format detection (by name, then by content) + merge/dedupe
 src/insights.ts     cross-source metrics and persona
 src/cards.ts        share-card lines + SVG renderer (redaction lives here)
 src/receipt.ts      privacy receipt (reads Resource Timing + CSP reports, sends nothing)
 src/diagnose.ts     explains unrecognised files from their names (what to request instead)
 src/demo.ts         deterministic synthetic exports
-src/ui/             Preact screens: Home, Review, Story, Share
+src/ui/             Preact screens: Home, Review, Story, Share; folders.ts walks dropped and chosen folders
 scripts/            e2e, dist privacy scan, static server, GIF builder
 docs/race-log.md    daily public race log
 ```

@@ -59,6 +59,12 @@ button:focus-visible, .button:focus-within, .drop:focus-within, input:focus-visi
 @keyframes spin { to { transform: rotate(1turn); } }
 .drop-title { font-size: 1.25rem; font-weight: 700; }
 .drop-sub { color: var(--dim); font-size: .95rem; max-width: 46ch; text-wrap: pretty; }
+.folder-pick { text-align: center; margin: .9rem auto 0; text-wrap: pretty; }
+.link { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; border-radius: 4px; transition: text-decoration-thickness 150ms ease; }
+.link:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) { .link:hover { text-decoration-thickness: 2px; } }
+/* Phones and tablets cannot pick or drop a folder, so the folder options are only offered where they work. */
+@media (hover: none) and (pointer: coarse) { .folder-pick, .folder-only { display: none; } }
 .promises { list-style: none; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin: 2.5rem 0; }
 .promises li { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 1.1rem; color: var(--dim); line-height: 1.45; }
 .promises b { color: var(--fg); display: block; margin-bottom: .3rem; }

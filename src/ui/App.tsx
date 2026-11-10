@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { computeInsights, defaultYear } from '../insights';
 import type { IngestResult } from '../model';
+import { num } from '../format';
 import { loadDemo } from '../pipeline';
+import { droppedEntries, fromInput, walkEntries, type Picked } from './folders';
 import { Home } from './Home';
 import { Review, type Filters } from './Review';
 import { Share } from './Share';
@@ -24,6 +26,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({ year: null, off: new Set(), profiles: new Set() });
   const worker = useRef<Worker | null>(null);
+  const walk = useRef(0);
   const firstRender = useRef(true);
 
   // Each screen replaces the whole page, so move focus to its heading (or the story itself):
@@ -42,7 +45,8 @@ export function App() {
     scrollTo(0, 0);
   };
 
-  const onFiles = (files: File[]) => {
+  const onFiles = (files: Picked[]) => {
+    walk.current++; // a folder still being listed must not replace these files when it finishes
     setError(null);
     setStatus('Reading files…');
     worker.current?.terminate();
@@ -62,6 +66,33 @@ export function App() {
     w.postMessage({ files });
   };
 
+  // A dropped folder (Safari on macOS unzips downloads by default) is walked here, on the main
+  // thread, because directory entries only exist inside the drop event; the files then go to the worker.
+  const onDrop = (dt: DataTransfer) => {
+    const entries = droppedEntries(dt);
+    if (!entries) {
+      if (dt.files.length) onFiles(fromInput(dt.files));
+      return;
+    }
+    const id = ++walk.current;
+    worker.current?.terminate();
+    setError(null);
+    setStatus('Listing folder…');
+    walkEntries(entries, (n) => { if (id === walk.current) setStatus(`Listing folder… ${num(n)} files`); }).then(
+      (files) => {
+        if (id !== walk.current) return;
+        if (files.length) return onFiles(files);
+        setStatus(null);
+        setError('No .zip, .json, .csv or .html files in this folder, so there is nothing to read.');
+      },
+      (e) => {
+        if (id !== walk.current) return;
+        setStatus(null);
+        setError(`Could not read this folder: ${e instanceof Error ? e.message : String(e)}`);
+      },
+    );
+  };
+
   const filtered = useMemo(() => {
     if (!data) return [];
     return data.events.filter((e) => !filters.off.has(e.source) && (e.source !== 'netflix' || !e.profile || filters.profiles.has(e.profile)));
@@ -69,7 +100,7 @@ export function App() {
   const ins = useMemo(() => (stage === 'story' ? computeInsights(filtered, filters.year) : null), [filtered, filters.year, stage]);
 
   if (stage === 'home' || !data) {
-    return <Home onFiles={onFiles} onDemo={() => accept(loadDemo(), true)} status={status} error={error} />;
+    return <Home onFiles={onFiles} onDrop={onDrop} onDemo={() => accept(loadDemo(), true)} status={status} error={error} />;
   }
   if (stage === 'review') {
     return (<>
