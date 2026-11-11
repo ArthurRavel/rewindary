@@ -247,3 +247,6 @@ The README hero GIF dated from the first commit and showed the old three-service
 - 38/38 browser E2E checks under `/rewindary/`. The demo checks now expect 5 parsed exports, an `applemusic` slide and 4 comparison rows, and the default SVG card is checked for the Apple artist name too.
 
 `git diff --check` is clean. The intro, total, comparison, Apple Music and persona frames and the share-card screenshot were inspected visually.
+
+### Deployed
+`feat/four-source-demo` was merged into `main` as `3eef937`, and its tree is identical to the verified branch. It was pushed normally. Because `src/demo.ts` is part of the app bundle, that exact verified `dist/` was published to `gh-pages` as `896c651` ("deploy: four-source demo (main 3eef937)"), with `.nojekyll` kept. About 30 s later the live site served the new bundle (`index-DqkMPOca.js`) with HTTP 200. The unauthenticated Pages-builds API returned 404, so the build status itself was not read. `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` then passed all 38 checks against the live site, including the 5-export demo, the Apple Music slide, the four-row comparison and zero external requests.
