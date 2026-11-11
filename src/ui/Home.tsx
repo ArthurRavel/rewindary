@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { FOLDER_PICKER, fromInput, type Picked } from './folders';
 import { GUIDES } from './guides';
 import { Icon, Mark } from './Icon';
+import { SourceLink } from './SourceLink';
 
 export function Home({ onFiles, onDrop, onDemo, status, error }: {
   onFiles: (f: Picked[]) => void; onDrop: (dt: DataTransfer) => void; onDemo: () => void; status: string | null; error: string | null;
@@ -52,7 +53,10 @@ export function Home({ onFiles, onDrop, onDemo, status, error }: {
         ))}
       </section>
       <footer class="foot">
-        <p>Open source (MIT). No analytics, no cookies, no remote fonts. Open DevTools → Network and watch: nothing goes out.</p>
+        <p>
+          Open source (MIT): <SourceLink>read the code on GitHub</SourceLink>. No analytics, no cookies, no remote fonts.
+          Open DevTools → Network and watch: nothing goes out.
+        </p>
         <p class="fine">Not affiliated with Spotify, Apple, Google, YouTube or Netflix.</p>
       </footer>
     </main>

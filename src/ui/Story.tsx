@@ -8,6 +8,7 @@ import type { SourceId } from '../model';
 import { SOURCE_LABEL } from '../model';
 import { DayClock, Legend, MonthBars, SplitBar } from './Charts';
 import { Icon } from './Icon';
+import { SourceLink } from './SourceLink';
 
 interface Slide { id: string; tone: SourceId | 'mix'; body: ComponentChildren }
 
@@ -288,6 +289,7 @@ export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => 
               <button class="primary" onClick={onShare} ref={shareRef}>Create share card</button>
               <button class="ghost" onClick={() => setI(0)}>Replay</button>
             </div>
+            <p class="fine source rise" style="animation-delay:600ms">Rewindary is open source. <SourceLink>See how it works on GitHub</SourceLink>.</p>
           </div>
         ) : (
           <div class="slide" key={slide.id} aria-live="polite">{slide.body}</div>

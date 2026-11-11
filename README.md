@@ -27,9 +27,10 @@ Drop the official data exports and you get an animated, mobile-first year in rev
   - "second screen" time, when music played while a video or show was on
   - a persona such as *Midnight Soundtracker* or *Weekend Binge Scholar*
 - **A story:** tap or arrow keys to move, auto-advance with pause, and support for `prefers-reduced-motion`.
-- **Share cards:** 9:16 story or 1:1 square, two themes, PNG or SVG. A review panel lists *every* line the card will contain (the panel and the renderer share one function). Personal values (#1 artist, show and channel, and the exact date of your busiest day) appear as `•••••` until you tick "show". You can drop whole sources from the card. Downloads stay disabled until you confirm that you've reviewed the card.
+- **Share cards:** 9:16 story or 1:1 square, two themes, PNG or SVG. A review panel lists *every* line the card will contain (the panel and the renderer share one function). Personal values (#1 artist, show and channel, and the exact date of your busiest day) appear as `•••••` until you tick "show". You can drop whole sources from the card. Downloads stay disabled until you confirm that you've reviewed the card. Every card ends with the same footer, "Made on-device with Rewindary · arthurravel.github.io/rewindary", so someone who sees your card can find the app; it is listed in the review panel too, and it is the only address a card ever carries.
 - **Privacy receipt.** After your files are parsed, the review screen shows what this tab actually did: requests to other sites (none), attempts the Content-Security-Policy blocked, how many page files loaded from the site itself, and whether anything was saved in the browser. It reads the browser's own request log (Resource Timing) and CSP reports, shows hosts only (never paths or queries), sends nothing, and can be re-checked at any time.
 - **Explains files it can't use.** If a dropped export has no usable history, the review screen says what it was and what to request instead: a Takeout with YouTube data but no history (and a reminder that big Takeouts come in several zips), a Spotify export without streaming history, a Netflix export without `ViewingActivity.csv`, or an unsupported archive. It reads only file and archive-entry names to decide, and you can add the missing export from the same screen.
+- **A link to the code.** The start page and the end of the story link to this repository, so "open source" can be checked. It is a plain link, opened in a new tab with no referrer only if you click it; nothing is loaded from it.
 - **Netflix profile filter** for shared accounts, a year or all-time selector, and per-source toggles.
 - **Synthetic demo.** The demo generates two years of fake Spotify, Apple Music, Google Takeout and Netflix exports in the real formats and runs them through the same parsers as your files.
 
@@ -43,7 +44,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 | No telemetry, analytics, CDNs or remote fonts | No such code exists; system font stack only | `tests/privacy-source.test.ts` scans the source for network APIs. `scripts/check-dist.mjs` scans the built bundle for remote URLs and network APIs and checks that the CSP is present |
 | Nothing persisted | No cookies, `localStorage`, `IndexedDB` or service worker. Closing the tab forgets everything | E2E asserts empty `localStorage`, `sessionStorage` and cookies |
 | Minimal data kept in memory | Adapters drop IP addresses, countries, devices, platforms, Apple IDs and bookmarks. **Search terms and URLs are discarded at parse time**, so a search becomes a bare timestamp. Ads, trailers, sub-minute previews and Spotify **private-session plays are excluded** | Parser tests assert that the synthetic IPs, queries, URLs and device names are absent from the parsed events |
-| Safe share cards | Names and exact dates are hidden by default. Titles, search terms, URLs and profile names are never on a card. User strings are XML-escaped | `tests/cards.test.ts` renders every format and theme from a full synthetic year and asserts that no name, title, profile, URL or exact date appears. The E2E test downloads the real PNG and SVG and checks them |
+| Safe share cards | Names and exact dates are hidden by default. Titles, search terms, URLs from your history and profile names are never on a card; the only address on it is Rewindary's own, in the footer. User strings are XML-escaped | `tests/cards.test.ts` renders every format and theme from a full synthetic year and asserts that no name, title, profile, URL or exact date appears, and that the footer address is the only one. The E2E test downloads the real PNG and SVG and checks them |
 
 **Threat model.** Rewindary protects you against the app itself, its hosting and its dependencies exfiltrating your history: the browser enforces the CSP even if the code had a bug. It also protects you from oversharing by accident through a card. It does **not** protect against a compromised browser or extension, or against someone with access to your unlocked device while the tab is open. The CSP is delivered as a `<meta>` tag because GitHub Pages cannot set headers. That covers network requests, but not `frame-ancestors`. If you don't want to trust the hosted copy, build it yourself (see below) and open `dist/` from any static server, or check DevTools → Network.
 
@@ -111,21 +112,21 @@ pnpm demo-gif         # re-capture screenshots from the build and regenerate doc
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 100 Vitest tests in 10 files, run in UTC.
+- `node scripts/run-tests.mjs`: 103 Vitest tests in 10 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
   - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years across all four services.
-  - Redaction: all card formats and themes, review lines equal card lines, XML escaping.
+  - Redaction: all card formats and themes, review lines equal card lines, XML escaping, the footer (once per card, the only address on it, and it fits).
   - Privacy receipt: same-origin vs external hosts, blocked attempts by host only, stored items.
   - Localized Takeouts: history under French, German and Spanish file names, the content check that decides what is kept (and that photo sidecars, bookmarks and Maps activity are not), thousands of tiny entries in one archive, stored (uncompressed) entries, and an entry with a compression method it cannot read.
   - Unzipped folders: a Takeout folder gives the same events as its zip, photos and sidecars are never opened, unreadable peeked files are skipped, one note per folder without history, zips inside a folder, the batched directory walk.
   - Unrecognised files: Takeout with YouTube data but no history (and split parts), Takeout of other products, Spotify and Netflix exports without history, unsupported archives, history-named files that don't parse.
   - Apple Music: header detection, only `PLAY_END` rows count (with a fallback when there are none), UTC timestamps, skips and broken rows, no Apple ID/IP/device in the events, the nested `Apple_Media_Services.zip` (one level only), a missing-artist export, the 30 s play rule, the shared music persona and listening run, the #1 artist on cards and a four-source legend that fits the card.
-  - Source privacy scan.
-- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 78 KB of JS (≈30 KB gzipped) plus a 26 KB parser worker. Runtime dependencies are `preact` and `fflate`.
-- `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle, and a strict CSP is present.
+  - Source privacy scan: no network APIs; the only remote URLs are the demo's synthetic data and the source-code link, which must open in a new tab with no referrer or opener.
+- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 79 KB of JS (≈30 KB gzipped) plus a 26 KB parser worker. Runtime dependencies are `preact` and `fflate`.
+- `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle (the exact source-code link is the one allowed URL besides the demo's synthetic data and the SVG namespace), and a strict CSP is present.
 - `node scripts/e2e.mjs`: drives the built site in headless Chromium, served under `/rewindary/` exactly like the GitHub Pages project site (any request outside that path fails the run). `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` runs the same checks against the deployed copy.
-  - Runs the demo through every slide (including Apple Music and the four-source year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names.
+  - Runs the demo through every slide (including Apple Music and the four-source year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names. Checks the source-code link on the start page and the end slide (new tab, no referrer or opener), the footer line in the review panel, and that the exported card carries the app address once and no other link.
   - Uploads zipped and plain fixtures for Spotify, Google and Netflix, and Apple's nested privacy zip (play activity read, its own story slide, the #1 artist hidden on the card review).
   - Checks zero external requests, that the CSP blocks a deliberate `fetch`, empty storage, and no page errors.
   - Checks that the privacy receipt reports no external requests, then surfaces the deliberate blocked `fetch` by host only after "Check again".
@@ -138,7 +139,7 @@ All fixtures in `tests/fixtures/` and all demo data are synthetic. Documentation
 
 ## Deploy
 
-The live site is served by GitHub Pages from the `gh-pages` branch, which holds only a built `dist/` (plus `.nojekyll`). Each release runs `pnpm verify` locally, then commits that exact verified `dist/` to `gh-pages` with the `main` commit it was built from in the message. There is no CI workflow in this repository. To host a fork, run `pnpm verify` and publish `dist/` the same way (Settings → Pages → Deploy from a branch → `gh-pages`). Any static host works too, since the build uses relative paths.
+The live site is served by GitHub Pages from the `gh-pages` branch, which holds only a built `dist/` (plus `.nojekyll`). Each release runs `pnpm verify` locally, then commits that exact verified `dist/` to `gh-pages` with the `main` commit it was built from in the message. There is no CI workflow in this repository. To host a fork, change the two lines in `src/site.ts` (the address printed on cards and the source link) and the copies pinned in `scripts/check-dist.mjs`, `scripts/e2e.mjs` and `tests/privacy-source.test.ts`, run `pnpm verify` and publish `dist/` the same way (Settings → Pages → Deploy from a branch → `gh-pages`). Any static host works too, since the build uses relative paths.
 
 ## Project layout
 

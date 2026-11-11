@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cardLines, renderCardSvg, shownLines, type RevealId } from '../src/cards';
+import { CARD_FOOTER, cardLines, renderCardSvg, shownLines, type RevealId } from '../src/cards';
+import { SITE_ADDRESS } from '../src/site';
 import { computeInsights } from '../src/insights';
 import type { LifeEvent } from '../src/model';
 import { loadDemo } from '../src/pipeline';
@@ -43,6 +44,26 @@ describe('share-card redaction', () => {
     expect(text.some((t) => t.startsWith(top.replace(/&/g, '&amp;')))).toBe(true);
     for (const l of shownLines(ins, reveal, 'story')) expect(text.join('\n')).toContain(l.id === 'peak' ? l.value : l.label);
     for (const l of shownLines(ins, reveal, 'square')) expect(svgText(renderCardSvg(ins, { format: 'square', theme: 'paper', reveal }))).toContain(l.label);
+  });
+
+  it('every card carries the footer once, and its address is the only one on the card', () => {
+    for (const format of ['story', 'square'] as const) {
+      for (const theme of ['dusk', 'paper'] as const) {
+        for (const reveal of [none, new Set<RevealId>(['topArtist', 'topShow', 'topChannel', 'exactDay'])]) {
+          const text = svgText(renderCardSvg(ins, { format, theme, reveal }));
+          expect(text.filter((t) => t === CARD_FOOTER.replace(/&/g, '&amp;'))).toHaveLength(1);
+          const rest = text.join('\n').replace(SITE_ADDRESS, '');
+          expect(rest).not.toMatch(/[a-z0-9-]+\.(io|com|net|org|app|dev)\b|\/\//i);
+        }
+      }
+    }
+    expect(CARD_FOOTER).toContain(SITE_ADDRESS);
+    expect(SITE_ADDRESS).not.toMatch(/^https?:/);
+  });
+
+  it('the footer fits inside the card margins', () => {
+    // Same per-character estimate as the legend: about 0.56 em per character of the system sans.
+    expect(CARD_FOOTER.length * 26 * 0.56).toBeLessThan(1080 - 2 * 80);
   });
 
   it('escapes user-controlled names', () => {

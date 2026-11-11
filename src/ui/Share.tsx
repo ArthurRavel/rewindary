@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { renderCardSvg, shownLines, type CardFormat, type CardTheme, type RevealId } from '../cards';
+import { CARD_FOOTER, renderCardSvg, shownLines, type CardFormat, type CardTheme, type RevealId } from '../cards';
 import { computeInsights } from '../insights';
 import type { LifeEvent, SourceId } from '../model';
 import { SOURCE_LABEL } from '../model';
@@ -114,8 +114,9 @@ export function Share({ events, year, onBack }: { events: LifeEvent[]; year: num
                 )}
               </li>
             ))}
+            <li data-testid="review-footer"><span>Footer</span><b>{CARD_FOOTER.replace(' · ', ' · ')}</b></li>
           </ul>
-          <p class="fine">Names and exact dates stay hidden (•••••) unless you tick “show”. Search terms, URLs, video titles and profile names are never put on a card.</p>
+          <p class="fine">Names and exact dates stay hidden (•••••) unless you tick “show”. Search terms, links from your history, video titles and profile names are never put on a card. The footer's address is Rewindary's own, so people who see your card can find it.</p>
         </fieldset>
         <label class="check confirm">
           <input type="checkbox" checked={reviewed} onChange={() => setReviewed(!reviewed)} data-testid="confirm-review" />
