@@ -318,3 +318,11 @@ Since last cycle, every share card prints `arthurravel.github.io/rewindary`. But
 - 45/45 browser E2E checks under `/rewindary/`. The 3 new checks cover the preview tags, `og.jpg` being served as `image/jpeg` (98,198 bytes), and the page never loading it.
 
 `git diff --check` against `main` is clean. The app's UI is unchanged. The start page at 1440×900 and 390×844 with reduced motion has `scrollWidth` equal to `clientWidth`. The Impeccable detector returned no findings on `index.html`. `og.jpg` was inspected visually.
+
+### Deployed
+`feat/link-previews` was merged into `main` as `8f42f7d`, and its tree is identical to the verified branch. It was pushed normally. That exact verified `dist/` was published to `gh-pages` as `6c3a473` ("deploy: link previews (main 8f42f7d)"), with `.nojekyll` kept. Only `index.html` and the new `og.jpg` changed; the JS and CSS bundles are byte-identical to the previous deploy.
+- The unauthenticated Pages-builds API returned 404, so the build status itself was not read.
+- About 30 s after the push, the live site served the new tags. `og.jpg` came back as HTTP 200 `image/jpeg`, with the same SHA-256 prefix (`37a18edb0870`) as the verified build.
+- `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` then passed all 45 checks against the live site: the preview tags, the served image, the page never loading it, zero external requests, empty storage and no page errors.
+
+GitHub Actions remain unavailable because of the billing lock, so CI is not claimed green.
