@@ -213,3 +213,6 @@ Every Rewindary story needed Spotify for its music side, which leaves out iPhone
 - 38/38 browser E2E checks under `/rewindary/`. The 4 new ones: the nested Apple zip is read (6 plays, 3 skipped), Apple Music gets its own story slide, the card review hides the #1 artist, and still zero external requests.
 
 The start page, the Apple guide, the review screen and the Apple Music slide were inspected at 1440×900 and at 390×844 with reduced motion. `scrollWidth` equals `clientWidth` on every screen.
+
+### Deployed
+`feat/apple-music` was merged into `main` as `1ca7b77`, whose source tree is identical to the verified branch. That exact verified `dist/` was published to `gh-pages` as `7c64e75` ("deploy: read Apple Music play activity (main 1ca7b77)"), with `.nojekyll` kept. The GitHub Pages legacy build for `7c64e75` reached `built` at 2026-11-11T04:32:47Z with no error. `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` then passed all 38 checks against the live site. These include the Apple Music upload, its story slide and the hidden #1 artist on the card review, zero external requests, empty `localStorage`, `sessionStorage` and cookies, and no page errors.
