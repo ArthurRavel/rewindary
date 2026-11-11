@@ -15,7 +15,8 @@
     "test:e2e": "node scripts/e2e.mjs",
     "test:privacy": "node scripts/check-dist.mjs",
     "verify": "tsc --noEmit && node scripts/run-tests.mjs && vite build && node scripts/check-dist.mjs && node scripts/e2e.mjs",
-    "demo-gif": "node scripts/e2e.mjs --shots && node scripts/demo-gif.mjs"
+    "demo-gif": "node scripts/e2e.mjs --shots && node scripts/demo-gif.mjs",
+    "og-image": "vite build && node scripts/og-image.mjs && vite build"
   },
   "dependencies": {
     "fflate": "^0.8.3",

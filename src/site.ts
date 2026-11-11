@@ -5,7 +5,10 @@
  * outside the demo data, and only exactly as written here.
  */
 
-/** Printed in the share-card footer, so someone who sees a card can find the app. No scheme: it is read, not clicked. */
+/**
+ * Printed in the share-card footer, so someone who sees a card can find the app. No scheme: it is read, not clicked.
+ * The build also turns it into the link-preview tags' og:url and og:image (vite.config.ts), which only unfurlers read.
+ */
 export const SITE_ADDRESS = 'arthurravel.github.io/rewindary';
 
 /** Linked from the start page and the end of the story, so the "open source" claim can be checked. */

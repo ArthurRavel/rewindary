@@ -30,6 +30,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 - **Share cards:** 9:16 story or 1:1 square, two themes, PNG or SVG. A review panel lists *every* line the card will contain (the panel and the renderer share one function). Personal values (#1 artist, show and channel, and the exact date of your busiest day) appear as `•••••` until you tick "show". You can drop whole sources from the card. Downloads stay disabled until you confirm that you've reviewed the card. Every card ends with the same footer, "Made on-device with Rewindary · arthurravel.github.io/rewindary", so someone who sees your card can find the app; it is listed in the review panel too, and it is the only address a card ever carries.
 - **Privacy receipt.** After your files are parsed, the review screen shows what this tab actually did: requests to other sites (none), attempts the Content-Security-Policy blocked, how many page files loaded from the site itself, and whether anything was saved in the browser. It reads the browser's own request log (Resource Timing) and CSP reports, shows hosts only (never paths or queries), sends nothing, and can be re-checked at any time.
 - **Explains files it can't use.** If a dropped export has no usable history, the review screen says what it was and what to request instead: a Takeout with YouTube data but no history (and a reminder that big Takeouts come in several zips), a Spotify export without streaming history, a Netflix export without `ViewingActivity.csv`, or an unsupported archive. It reads only file and archive-entry names to decide, and you can add the missing export from the same screen.
+- **Link previews.** Pasting the app's address into a chat or a post shows a title, a one-line description and a preview image (`public/og.jpg`, 1200×630) instead of a bare URL. The image shows the synthetic demo's default share card, with the #1 artist hidden; `pnpm og-image` re-captures it from the production build. The tags are only read by whatever unfurls the link: the page itself never loads the image.
 - **A link to the code.** The start page and the end of the story link to this repository, so "open source" can be checked. It is a plain link, opened in a new tab with no referrer only if you click it; nothing is loaded from it.
 - **Netflix profile filter** for shared accounts, a year or all-time selector, and per-source toggles.
 - **Synthetic demo.** The demo generates two years of fake Spotify, Apple Music, Google Takeout and Netflix exports in the real formats and runs them through the same parsers as your files.
@@ -108,11 +109,12 @@ pnpm install          # or: npm install / corepack pnpm@9.15.0 install
 pnpm dev              # local dev server
 pnpm verify           # typecheck → unit tests → production build → dist privacy scan → browser E2E
 pnpm demo-gif         # re-capture screenshots from the build and regenerate docs/media/demo.gif
+pnpm og-image         # re-capture public/og.jpg, the link-preview image, from the build
 ```
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 103 Vitest tests in 10 files, run in UTC.
+- `node scripts/run-tests.mjs`: 107 Vitest tests in 11 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
   - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years across all four services.
@@ -122,12 +124,14 @@ What `verify` runs, exactly:
   - Unzipped folders: a Takeout folder gives the same events as its zip, photos and sidecars are never opened, unreadable peeked files are skipped, one note per folder without history, zips inside a folder, the batched directory walk.
   - Unrecognised files: Takeout with YouTube data but no history (and split parts), Takeout of other products, Spotify and Netflix exports without history, unsupported archives, history-named files that don't parse.
   - Apple Music: header detection, only `PLAY_END` rows count (with a fallback when there are none), UTC timestamps, skips and broken rows, no Apple ID/IP/device in the events, the nested `Apple_Media_Services.zip` (one level only), a missing-artist export, the 30 s play rule, the shared music persona and listening run, the #1 artist on cards and a four-source legend that fits the card.
+  - Link previews: the build adds Open Graph and X tags whose only absolute URLs are the app's own address and its `og.jpg`, copies the page's title and description (a quote in them cannot break a tag), and the image is a 1200×630 JPEG under 300 KB.
   - Source privacy scan: no network APIs; the only remote URLs are the demo's synthetic data and the source-code link, which must open in a new tab with no referrer or opener.
 - `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 79 KB of JS (≈30 KB gzipped) plus a 26 KB parser worker. Runtime dependencies are `preact` and `fflate`.
-- `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle (the exact source-code link is the one allowed URL besides the demo's synthetic data and the SVG namespace), and a strict CSP is present.
+- `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle (the exact source-code link is the one allowed URL besides the demo's synthetic data and the SVG namespace), and a strict CSP is present. It also checks that the link-preview tags point at the app's own address (the only other absolute URLs allowed in `index.html`) and that `og.jpg` ships as a 1200×630 JPEG under 300 KB.
 - `node scripts/e2e.mjs`: drives the built site in headless Chromium, served under `/rewindary/` exactly like the GitHub Pages project site (any request outside that path fails the run). `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` runs the same checks against the deployed copy.
   - Runs the demo through every slide (including Apple Music and the four-source year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names. Checks the source-code link on the start page and the end slide (new tab, no referrer or opener), the footer line in the review panel, and that the exported card carries the app address once and no other link.
   - Uploads zipped and plain fixtures for Spotify, Google and Netflix, and Apple's nested privacy zip (play activity read, its own story slide, the #1 artist hidden on the card review).
+  - Checks the link-preview tags, that `og.jpg` is served next to the app, and that the page never loads it.
   - Checks zero external requests, that the CSP blocks a deliberate `fetch`, empty storage, and no page errors.
   - Checks that the privacy receipt reports no external requests, then surfaces the deliberate blocked `fetch` by host only after "Check again".
   - Uploads a Takeout part with no history, checks the explanation and that there is nothing to play, then adds the missing export from the same screen.
@@ -139,7 +143,7 @@ All fixtures in `tests/fixtures/` and all demo data are synthetic. Documentation
 
 ## Deploy
 
-The live site is served by GitHub Pages from the `gh-pages` branch, which holds only a built `dist/` (plus `.nojekyll`). Each release runs `pnpm verify` locally, then commits that exact verified `dist/` to `gh-pages` with the `main` commit it was built from in the message. There is no CI workflow in this repository. To host a fork, change the two lines in `src/site.ts` (the address printed on cards and the source link) and the copies pinned in `scripts/check-dist.mjs`, `scripts/e2e.mjs` and `tests/privacy-source.test.ts`, run `pnpm verify` and publish `dist/` the same way (Settings → Pages → Deploy from a branch → `gh-pages`). Any static host works too, since the build uses relative paths.
+The live site is served by GitHub Pages from the `gh-pages` branch, which holds only a built `dist/` (plus `.nojekyll`). Each release runs `pnpm verify` locally, then commits that exact verified `dist/` to `gh-pages` with the `main` commit it was built from in the message. There is no CI workflow in this repository. To host a fork, change the two lines in `src/site.ts` (the address printed on cards and in the link-preview tags, and the source link) and the copies pinned in `scripts/check-dist.mjs`, `scripts/e2e.mjs` and `tests/privacy-source.test.ts`, run `pnpm og-image` so the preview image shows your address, then `pnpm verify` and publish `dist/` the same way (Settings → Pages → Deploy from a branch → `gh-pages`). Any static host works too, since the build uses relative paths.
 
 ## Project layout
 

@@ -47,6 +47,13 @@ const SOURCE_URL = 'https://github.com/ArthurRavel/rewindary';
 const SITE_ADDRESS = 'arthurravel.github.io/rewindary';
 const linkOk = async (l) => (await l.getAttribute('href')) === SOURCE_URL && (await l.getAttribute('target')) === '_blank' && (await l.getAttribute('rel')) === 'noopener noreferrer';
 check(await linkOk(page.getByTestId('source-link')), 'start page links to the source code in a new tab, without referrer or opener');
+const og = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('meta[property^="og:"], meta[name^="twitter:"]')].map((m) => [m.getAttribute('property') ?? m.getAttribute('name'), m.content])));
+check(og['og:url'] === `https://${SITE_ADDRESS}/` && og['og:image'] === `https://${SITE_ADDRESS}/og.jpg` && og['twitter:card'] === 'summary_large_image' && /Apple Music/.test(og['og:description']), `link-preview tags point at the app's own address (${og['og:image']})`);
+// Crawlers fetch the image from the deployed address; here it is fetched from wherever this run serves the app.
+const ogImage = await page.request.get(new URL('og.jpg', app).href);
+const ogBody = await ogImage.body();
+check(ogImage.ok() && ogImage.headers()['content-type'] === 'image/jpeg' && ogBody[0] === 0xff && ogBody[1] === 0xd8 && ogBody.length < 300_000, `the preview image is served next to the app (${ogBody.length} bytes)`);
+check(!(await page.evaluate(() => performance.getEntriesByType('resource').some((e) => e.name.includes('og.jpg')))), 'the page itself never loads the preview image');
 await page.getByTestId('demo').click();
 await page.getByTestId('reports').waitFor();
 check((await page.getByTestId('reports').locator('li').count()) === 5, 'demo produces 5 parsed export files (Spotify, Apple Music, 2 Takeout, Netflix)');
