@@ -201,12 +201,13 @@ Every Rewindary story needed Spotify for its music side, which leaves out iPhone
   - An inner `Apple_Media_Services.zip` over 1 GiB is skipped, and the user then gets the "no play activity" hint.
   - The inner zip is held in memory while it is read.
   - The README demo GIF still shows the old three-service hero line, because it was not regenerated this cycle.
+- **Fixture line endings.** Independent verification found that `git diff --check` failed because the Apple fixture was committed with CRLF line endings. It now uses LF (`b2f89dd`), a new test still covers parsing a CRLF copy, and `git diff --check main...HEAD` passes.
 - **Not run:** `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run.** No billing, security or auth setting was touched. Nothing was merged or deployed by this run.
 
 ### Verified (local)
 `corepack pnpm@9.15.0 verify` exited 0 on `feat/apple-music`:
 - `tsc --noEmit` clean
-- 98/98 Vitest tests in 10 files (16 new in `tests/apple-music.test.ts`)
+- 99/99 Vitest tests in 10 files (17 new in `tests/apple-music.test.ts`)
 - production build (76.78 kB JS, 29.11 kB gzipped; 26.28 kB worker)
 - dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present")
 - 38/38 browser E2E checks under `/rewindary/`. The 4 new ones: the nested Apple zip is read (6 plays, 3 skipped), Apple Music gets its own story slide, the card review hides the #1 artist, and still zero external requests.
