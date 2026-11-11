@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import preact from '@preact/preset-vite';
+import { socialMeta } from './scripts/social-meta.ts';
 
 /**
  * Production Content-Security-Policy. `connect-src 'none'` makes the browser refuse every
@@ -28,10 +29,12 @@ const csp = (): Plugin => ({
   transformIndexHtml: (html) => html.replace('<meta charset="utf-8" />', `<meta charset="utf-8" />\n    <meta http-equiv="Content-Security-Policy" content="${CSP}" />`),
 });
 
+const social = (): Plugin => ({ name: 'rewindary-social-meta', transformIndexHtml: socialMeta });
+
 export default defineConfig({
   // Relative base so the static build works on GitHub Pages sub-paths and from any folder.
   base: './',
-  plugins: [preact(), csp()],
+  plugins: [preact(), csp(), social()],
   build: { target: 'es2022', sourcemap: false, assetsInlineLimit: 0, modulePreload: { polyfill: false } },
   worker: { format: 'es' },
   test: { include: ['tests/**/*.test.ts'], environment: 'node' },
