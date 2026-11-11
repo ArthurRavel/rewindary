@@ -2,14 +2,15 @@ import type { Insights } from './insights';
 import { MUSIC_SOURCES, SOURCE_LABEL } from './model';
 import { dayClockArcs, splitSegments } from './charts';
 import { dayLabel, escapeXml, hourLabel, hours, num, truncate, wrap } from './format';
+import { SITE_ADDRESS } from './site';
 
 /**
  * Share cards are built in two steps:
  *  1. `cardLines()` produces every line of text the card will contain, with a flag for
  *     anything personal (names, exact dates). The review panel shows exactly these lines.
  *  2. `renderCardSvg()` draws only those lines plus anonymous charts.
- * Personal values are hidden unless their id is in `reveal`. Search terms, URLs and raw
- * titles are never part of a card.
+ * Personal values are hidden unless their id is in `reveal`. Search terms, URLs from your
+ * history and raw titles are never part of a card; the only address on it is the app's own (`CARD_FOOTER`).
  */
 export type CardFormat = 'story' | 'square';
 export type CardTheme = 'dusk' | 'paper';
@@ -81,6 +82,12 @@ export function shownLines(ins: Insights, reveal: ReadonlySet<RevealId>, format:
   return format === 'story' ? lines.slice(0, 5) : lines.filter((l) => ['peak', 'streak', 'binge', 'topArtist'].includes(l.id)).slice(0, 3);
 }
 
+/**
+ * The footer every card carries: an anonymous attribution with the app's own address, so a card seen
+ * elsewhere leads back to a tool that can be checked. It is the only address that is ever on a card.
+ */
+export const CARD_FOOTER = `Made on-device with Rewindary · ${SITE_ADDRESS}`;
+
 export function renderCardSvg(ins: Insights, opts: CardOptions): string {
   const p = PALETTES[opts.theme];
   const W = 1080;
@@ -149,7 +156,7 @@ export function renderCardSvg(ins: Insights, opts: CardOptions): string {
     o.push(t(80, y, story ? 38 : 34, l.label, `fill="${p.dim}"`));
     o.push(t(W - 80, y, story ? 38 : 34, l.value, `text-anchor="end" font-weight="700"`));
   }
-  o.push(t(W / 2, H - (story ? 70 : 44), 26, 'Made with Rewindary · computed offline, nothing uploaded', `text-anchor="middle" fill="${p.dim}"`));
+  o.push(t(W / 2, H - (story ? 70 : 44), 26, CARD_FOOTER, `text-anchor="middle" fill="${p.dim}"`));
   o.push('</g></svg>');
   return o.join('');
 }

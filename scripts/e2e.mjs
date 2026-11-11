@@ -43,6 +43,10 @@ console.log('Demo flow');
 await page.goto(app);
 await page.getByTestId('demo').waitFor();
 await snap('home');
+const SOURCE_URL = 'https://github.com/ArthurRavel/rewindary';
+const SITE_ADDRESS = 'arthurravel.github.io/rewindary';
+const linkOk = async (l) => (await l.getAttribute('href')) === SOURCE_URL && (await l.getAttribute('target')) === '_blank' && (await l.getAttribute('rel')) === 'noopener noreferrer';
+check(await linkOk(page.getByTestId('source-link')), 'start page links to the source code in a new tab, without referrer or opener');
 await page.getByTestId('demo').click();
 await page.getByTestId('reports').waitFor();
 check((await page.getByTestId('reports').locator('li').count()) === 5, 'demo produces 5 parsed export files (Spotify, Apple Music, 2 Takeout, Netflix)');
@@ -57,7 +61,10 @@ for (let i = 0; i < 20; i++) {
   await page.waitForTimeout(1100);
   await snap(`slide-${id}`);
   if (id === 'change') changeText = `${await page.getByTestId('change-total').innerText()}\n${await page.locator('.slide').innerText()}`;
-  if (id === 'end') break;
+  if (id === 'end') {
+    check(await linkOk(page.locator('.slide.end').getByTestId('source-link')), 'the end of the story links to the source code in a new tab');
+    break;
+  }
   await page.locator('.tap.next').click();
 }
 check(['intro', 'total', 'change', 'clock', 'seasons', 'busiest', 'spotify', 'applemusic', 'youtube', 'netflix', 'rhythm', 'persona', 'end'].every((s) => slideIds.includes(s)), `story slides: ${slideIds.join(', ')}`);
@@ -70,6 +77,7 @@ await snap('share');
 const review = await page.getByTestId('review').locator('ul').innerText();
 check((review.match(/•••••/g) ?? []).length === 3, 'review lists 3 hidden names by default');
 check(!/(January|February|March|April|May|June|July|August|September|October|November|December) \d/.test(review), 'no exact dates listed by default');
+check((await page.getByTestId('review-footer').innerText()).includes(SITE_ADDRESS), 'the review lists the card footer with the app address');
 const dl1 = page.waitForEvent('download');
 check(await page.getByText('Download PNG').isDisabled(), 'download disabled until the review is confirmed');
 await page.getByTestId('confirm-review').check();
@@ -82,6 +90,7 @@ await page.getByRole('button', { name: 'SVG' }).click();
 const svg = readFileSync(await (await dl2).path(), 'utf8');
 const demoNames = ['Velvet Static', 'Mira Calloway', 'Marrow Coast', 'Bench Lab Builds', 'Slow Kitchen', 'Lighthouse Accord', 'Copper Valley', 'Harbor Lights', 'Sam', 'Guest'];
 check(!demoNames.some((n) => svg.includes(n)), 'default SVG card contains no artist, channel, show or profile names');
+check(svg.split(SITE_ADDRESS).length === 2 && !svg.includes('github.com'), 'the SVG card carries the app address once, and no other link');
 await page.locator('.reveal input').first().check();
 const dl3 = page.waitForEvent('download');
 await page.getByRole('button', { name: 'SVG' }).click();

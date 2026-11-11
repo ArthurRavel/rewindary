@@ -7,8 +7,9 @@ const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.is
 const files = walk(DIST);
 const problems = [];
 
-// URLs that are data, not requests: SVG/XML namespaces and the synthetic export data in the demo generator.
-const ALLOWED_URL = /^https?:\/\/(www\.w3\.org\/|www\.youtube\.com\/(watch\?v=demo|channel\/demo|results\?search_query=demo))/;
+// URLs that are data, not requests: SVG/XML namespaces, the synthetic export data in the demo generator,
+// and the one link to the source code (src/site.ts), which is only followed if the visitor clicks it.
+const ALLOWED_URL = /^https?:\/\/(www\.w3\.org\/|www\.youtube\.com\/(watch\?v=demo|channel\/demo|results\?search_query=demo))|^https:\/\/github\.com\/ArthurRavel\/rewindary$/;
 const NETWORK = [/\bfetch\s*\(/, /XMLHttpRequest/, /sendBeacon/, /new WebSocket/, /EventSource/, /RTCPeerConnection/, /importScripts/, /serviceWorker\.register/];
 
 for (const f of files) {

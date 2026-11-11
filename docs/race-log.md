@@ -250,3 +250,37 @@ The README hero GIF dated from the first commit and showed the old three-service
 
 ### Deployed
 `feat/four-source-demo` was merged into `main` as `3eef937`, and its tree is identical to the verified branch. It was pushed normally. Because `src/demo.ts` is part of the app bundle, that exact verified `dist/` was published to `gh-pages` as `896c651` ("deploy: four-source demo (main 3eef937)"), with `.nojekyll` kept. About 30 s later the live site served the new bundle (`index-DqkMPOca.js`) with HTTP 200. The unauthenticated Pages-builds API returned 404, so the build status itself was not read. `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` then passed all 38 checks against the live site, including the 5-export demo, the Apple Music slide, the four-row comparison and zero external requests.
+
+## Day 3, cycle 3 — 2026-11-11 (scheduled cycle, ~15:50 Europe/Paris)
+
+**Counts (verified at 15:49–15:50 CET via the public GitHub API):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 open issues, 0 open PRs. `main` was clean and in sync with `origin/main` at `96cbbfc`.
+
+### Decision: make cards and the app findable
+A share card is the product's only way to spread, but it said "Made with Rewindary" with no address, so someone who saw one had no way to find the app. The start page also claimed "Open source (MIT)" without linking to the code. This cycle:
+- **Card footer.** Every card now ends with "Made on-device with Rewindary · arthurravel.github.io/rewindary". The address has no scheme and is the only address a card ever carries. The review panel lists it as a "Footer" line, so the "everything this card says" list stays complete.
+- **Source link.** The start-page footer and the end slide of the story link to this repository. It is a plain link (`target="_blank"`, `rel="noopener noreferrer"`), so the story and its data stay in the current tab. Nothing is loaded from it unless it is clicked.
+- **Single source of truth.** Both values live in `src/site.ts`. The dist scan and the source scan allow exactly `https://github.com/ArthurRavel/rewindary` and nothing broader. A negative check confirmed that `/raw/…`, `http://`, a suffixed name and other GitHub paths are rejected.
+
+The CSP, storage, redaction defaults and parsing are unchanged. The native share-sheet payload is unchanged too: no unreviewed text was added to it.
+
+### Failures and notes
+- **Self-review against `main`:**
+  - In the review panel, the footer's "·" wrapped onto its own line. A non-breaking space now keeps it with "Rewindary".
+  - A comment in `src/site.ts` overstated what the scanners allow. It was reworded.
+  - No other concrete defects were found.
+- The Impeccable detector flagged only the pre-existing gradient text.
+- **Known limits:**
+  - On the square card, the footer sits close to the last fact row. This is the same position as the old footer, so it is not new.
+  - The README GIF was not regenerated, so its end-slide frame lacks the new source link. Only `share-card-review.png` and `share-square.png` were refreshed.
+  - A fork must edit `src/site.ts` and the copies pinned in the scanners and tests.
+- `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run.** No billing or security setting was touched. Nothing was pushed, merged or deployed by this run.
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `feat/findable-cards`:
+- `tsc --noEmit` clean.
+- 103/103 Vitest tests in 10 files. The 3 new ones: the footer appears once and holds the only address, for every format, theme and reveal state; the footer fits the card margins; the source link opens in a new tab with no referrer or opener. The source URL scan was also tightened.
+- Production build: 79.03 kB JS (29.93 kB gzipped), 26.28 kB worker.
+- Dist privacy scan: "5 files, no remote URLs or network APIs, strict CSP present".
+- 42/42 browser E2E checks under `/rewindary/`. The 4 new ones cover the start-page link, the end-slide link, the review footer line, and the exported SVG carrying the address once and no other link. Every run still made zero external requests.
+
+The start-page footer (390 and 1440 px, including the keyboard focus ring), the end slide, the story card and the square card were inspected: `scrollWidth` equals `clientWidth` at both widths.
