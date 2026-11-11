@@ -287,3 +287,34 @@ The start-page footer (390 and 1440 px, including the keyboard focus ring), the 
 
 ### Deployed
 `feat/findable-cards` was merged into `main` as `15c31af`. That exact verified `dist/` was published to `gh-pages` as `9c1e60f`. The authenticated GitHub Pages legacy build for that commit reached `built` at 2026-11-11T15:02:02Z with no error. The live URL returned HTTP 200 and served `index-sE75Yq7Z.js` and `index-BldUQAmv.css`. The full browser E2E then passed all 42 checks against the live site, including the safe source links, the reviewed card footer, exactly one app address in the SVG, zero external requests, empty browser storage and no page errors. GitHub Actions remain unavailable because of the billing lock, so CI is not claimed green.
+
+## Day 3, cycle 4 — 2026-11-11 (scheduled cycle, ~21:10 Europe/Paris)
+
+**Counts (verified at 21:16 CET via the public GitHub API):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 open issues, 0 open PRs. `main` was clean and in sync with `origin/main` at `c5b5f91`.
+
+### Decision: link previews for the app address
+Since last cycle, every share card prints `arthurravel.github.io/rewindary`. But pasting that address into Slack, Discord, X, WhatsApp or iMessage showed a bare URL: the page had no Open Graph or X tags and no preview image. This cycle:
+- **Tags generated at build time** (`scripts/social-meta.ts`, used as a Vite plugin). Title and description are copied from `index.html`, and `og:url`/`og:image` are built from `SITE_ADDRESS` in `src/site.ts`, so a fork changes one place. A `"` in the copy is escaped.
+- **Preview image** `public/og.jpg`: 1200×630, 96 KB. A PNG was 298 KiB, at the edge of what messengers unfurl. The card in it is the real default square card from the synthetic demo, downloaded through the review gate with the #1 artist hidden; the script refuses a card without `•••••`. `pnpm og-image` re-captures it.
+- **Privacy unchanged.** Browsers never fetch these tags: E2E checks that the page does not load `og.jpg`, and every run still made zero external requests. The dist scan allows the app's absolute URL only in `index.html`, only as `og:url` and `og:image`, and checks that `og.jpg` is a 1200×630 JPEG under 300 KB. Negative checks confirmed that it rejects a preview URL on another host, an oversized image, a stale build that still pointed at `og.png`, and the app URL inside a JS asset.
+
+### Failures and notes
+- Importing `vite.config.ts` from a test broke `tsc`: the Vite 8 config type does not know `test`, and Vitest's type reference did not fix it. The generator moved to `scripts/social-meta.ts`. The new import triggered Vite's "native config loader" warning, so imports now carry `.ts` extensions (with `allowImportingTsExtensions`, since `noEmit` is set).
+- **Self-review against `main`** found two problems, both fixed:
+  - Values were not escaped. A title containing `"` would have broken the tags, and there is now a test for it.
+  - The scan's new URL allowance applied to every built file instead of `index.html` only.
+- **Not done:**
+  - The GitHub repository description still says "Spotify, YouTube and Netflix", and the topics lack `apple-music`. No API token was available in this environment (`gh` is not installed and no token is set), so repository metadata was not changed. The README already names all four services.
+  - The GitHub repo's own social preview (for `github.com/...` links) can only be set in the web UI. It was not changed.
+  - How each platform actually renders the unfurl was not checked with a real Slack, Discord or X post. Only the tags and the served image were verified.
+- `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run.** No billing or security setting was touched.
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on the final tree of `feat/link-previews` (commit `e3ad969`):
+- `tsc --noEmit` clean
+- 107/107 Vitest tests in 11 files (4 new in `tests/social-meta.test.ts`)
+- production build: 79.03 kB JS (29.93 kB gzipped), 26.28 kB worker; the app bundle is byte-identical to `main` (`index-sE75Yq7Z.js`)
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present"
+- 45/45 browser E2E checks under `/rewindary/`. The 3 new checks cover the preview tags, `og.jpg` being served as `image/jpeg` (98,198 bytes), and the page never loading it.
+
+`git diff --check` against `main` is clean. The app's UI is unchanged. The start page at 1440×900 and 390×844 with reduced motion has `scrollWidth` equal to `clientWidth`. The Impeccable detector returned no findings on `index.html`. `og.jpg` was inspected visually.
