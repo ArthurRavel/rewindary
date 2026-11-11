@@ -180,3 +180,35 @@ The start page and review screen were inspected at 1440×900 and 390×844 (reduc
 
 ### Deployed
 Feature merged into `main` as `2081311`. The full local `corepack pnpm@9.15.0 verify` was independently re-run after the feature branch and passed: 82/82 unit tests, production build, strict dist privacy scan and all 34 local E2E checks. That exact verified `dist/` was published to `gh-pages` as `5c446a1` ("deploy: unzipped folder import (main 2081311)"). The GitHub Pages legacy build for `5c446a1e31fbc74f0256d93ef7b4ca83fb3821b2` reached `built` at 2026-11-10T23:07:19Z with no error. `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` then passed all 34 checks against the live site, including all five folder checks and zero external requests.
+
+## Day 3 — 2026-11-11 (scheduled cycle, ~05:15 Europe/Paris)
+
+**Counts (verified at 05:28 CET via the public GitHub API):** Rewindary 0 stars, 0 forks, 0 open issues and PRs · Abo Killer 0 stars, 0 forks, 0 open issues and PRs. `main` was clean at `9af107c`.
+
+### Decision: read Apple Music
+Every Rewindary story needed Spotify for its music side, which leaves out iPhone users who listen on Apple Music. Rewindary now reads Apple's privacy download ("Apple Media Services information"). Drop the zip as it is: the `Apple_Media_Services.zip` inside it is opened (one level deep, only that name), and `Apple Music Activity/Apple Music Play Activity.csv` is parsed row by row.
+- **What counts as a play:** a `PLAY_END` row of 5 s to 6 h with a song name. If a file has no `PLAY_END` rows at all, every row with a duration counts instead.
+- **What is never read:** the Apple ID, IP address, device, storefront and client columns.
+- **In the story and on cards:** Apple Music gets its own slide. It shares the "music" persona lane, the 30 s play rule, the listening run and second-screen time with Spotify. On cards, the #1 artist comes from whichever music service has more hours, and it is hidden by default as before.
+- **Export without artist names:** the story ranks songs and the review screen says why.
+- **Apple export without play activity:** the review screen explains what to request.
+- **Start page:** a new export guide, and the hero now names Apple Music.
+
+### Failures and notes
+- **Format check is partial.** The column headers come from the source of an open-source parser (`mariolopjr/apple-csv-to-lastfm`). Apple's request steps and the "up to 7 days" wait were confirmed by web search. **Not verified against a real export:** the meaning of `PLAY_END` rows and the exact timestamp format (two pages that might have shown example rows returned 403 and 404). The parser is defensive about both, and the fixture is synthetic. `Apple Music - Play History Daily Tracks.csv` is not read, because its columns could not be verified and it has no per-play times.
+- **Card legend overflow, found before the review.** With four media sources, the share-card legend ran past the right edge of the 1080 px card. It now scales down to fit, with a test that fails on the old layout.
+- **Known limits:**
+  - An inner `Apple_Media_Services.zip` over 1 GiB is skipped, and the user then gets the "no play activity" hint.
+  - The inner zip is held in memory while it is read.
+  - The README demo GIF still shows the old three-service hero line, because it was not regenerated this cycle.
+- **Not run:** `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run.** No billing, security or auth setting was touched. Nothing was merged or deployed by this run.
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `feat/apple-music`:
+- `tsc --noEmit` clean
+- 98/98 Vitest tests in 10 files (16 new in `tests/apple-music.test.ts`)
+- production build (76.78 kB JS, 29.11 kB gzipped; 26.28 kB worker)
+- dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present")
+- 38/38 browser E2E checks under `/rewindary/`. The 4 new ones: the nested Apple zip is read (6 plays, 3 skipped), Apple Music gets its own story slide, the card review hides the #1 artist, and still zero external requests.
+
+The start page, the Apple guide, the review screen and the Apple Music slide were inspected at 1440×900 and at 390×844 with reduced motion. `scrollWidth` equals `clientWidth` on every screen.
