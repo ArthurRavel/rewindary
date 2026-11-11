@@ -216,3 +216,34 @@ The start page, the Apple guide, the review screen and the Apple Music slide wer
 
 ### Deployed
 `feat/apple-music` was merged into `main` as `1ca7b77`, whose source tree is identical to the verified branch. That exact verified `dist/` was published to `gh-pages` as `7c64e75` ("deploy: read Apple Music play activity (main 1ca7b77)"), with `.nojekyll` kept. The GitHub Pages legacy build for `7c64e75` reached `built` at 2026-11-11T04:32:47Z with no error. `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` then passed all 38 checks against the live site. These include the Apple Music upload, its story slide and the hidden #1 artist on the card review, zero external requests, empty `localStorage`, `sessionStorage` and cookies, and no page errors.
+
+## Day 3, cycle 2 — 2026-11-11 (scheduled cycle, ~10:40 Europe/Paris)
+
+**Counts (verified at 10:44 CET via the public GitHub API):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 open issues, 0 open PRs. `main` was clean and in sync with `origin/main` at `fec7ebb`.
+
+### Decision: a four-source demo and a fresh README GIF
+The README hero GIF dated from the first commit and showed the old three-service start page. Simply re-capturing it would not have been enough: the synthetic demo it is captured from generated only Spotify, YouTube and Netflix, so the story would still have shown three services. That also meant visitors pressing "Try it with synthetic demo data" never saw Apple Music.
+- **The demo now includes Apple Music.** It adds a synthetic `Apple Music Play Activity.csv`, with PLAY_START/PLAY_END pairs, six invented artists, morning-run and weekend sessions in both years, and synthetic Apple ID, IP (`192.0.2.44`) and device columns. It goes through the real Apple Music parser.
+- **The other exports are unchanged.** Apple Music has its own random stream, so the Spotify, YouTube and Netflix exports are byte-identical to `main`. This was checked once with a scratch test that compared `demoFiles()` from `main` and the branch. The scratch test was deleted.
+- **What the demo now shows:** 96 → 90 h of Apple Music after tuning (see below), a 4-source legend, an Apple Music slide, a year-over-year slide with four rows (+20% overall, counted from Jan 1 to Dec 27, because Apple Music is now the stalest source), and the share-card legend with Apple Music 8%. The #1 artist on the card is still Spotify's, and still hidden by default.
+- **GIF re-captured** with `pnpm demo-gif` from the production build: the current start page, then all 13 story slides (14 frames, 400×760, 273 KB). The share-card screenshots were refreshed in the same run. `review-upload.png` was restored, because the only change there was a focus ring on the heading and no document uses the file.
+
+### Failures and notes
+- The first Apple stream picked songs with a doubly skewed draw from 6 songs per artist. The GIF frame then read "On repeat: … (288×)", which is implausible. It now uses 10 songs per artist and picks a song uniformly within each artist, which gives 72×. Only the Apple stream changed.
+- **Self-review against `main` found and fixed two problems:**
+  - A first "exports stay independent" unit test compared `demoFiles()` with itself, so it could never fail. It was removed, and that fact is recorded here instead.
+  - The new privacy assertion stringified whole events, so a numeric timestamp could match `1234567890`. It now checks only string fields.
+- **Stale frames.** The GIF builder includes every `NN-slide-*` frame in `docs/media/frames/` (git-ignored). Because one more slide shifts the indices, old frames would have been mixed in, so the folder was cleared before capture.
+- README drift was corrected: the test count went from 98 to 100, and the bundle size went from "74 KB JS, 24 KB worker" to the measured 78 KB (≈30 KB gzipped) and 26 KB.
+- Not measured: the extra cost of generating the 1 MB demo CSV in a real browser. In Node the whole demo loads in about 0.2 s.
+- `pnpm` is not on the PATH here, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run.** No billing or security setting was touched.
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `feat/four-source-demo` after the review fixes:
+- `tsc --noEmit` clean
+- 100/100 Vitest tests in 10 files
+- production build (78.32 kB JS, 29.67 kB gzipped; 26.28 kB worker)
+- dist privacy scan ("5 files, no remote URLs or network APIs, strict CSP present")
+- 38/38 browser E2E checks under `/rewindary/`. The demo checks now expect 5 parsed exports, an `applemusic` slide and 4 comparison rows, and the default SVG card is checked for the Apple artist name too.
+
+`git diff --check` is clean. The intro, total, comparison, Apple Music and persona frames and the share-card screenshot were inspected visually.
