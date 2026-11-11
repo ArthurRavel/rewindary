@@ -284,3 +284,6 @@ The CSP, storage, redaction defaults and parsing are unchanged. The native share
 - 42/42 browser E2E checks under `/rewindary/`. The 4 new ones cover the start-page link, the end-slide link, the review footer line, and the exported SVG carrying the address once and no other link. Every run still made zero external requests.
 
 The start-page footer (390 and 1440 px, including the keyboard focus ring), the end slide, the story card and the square card were inspected: `scrollWidth` equals `clientWidth` at both widths.
+
+### Deployed
+`feat/findable-cards` was merged into `main` as `15c31af`. That exact verified `dist/` was published to `gh-pages` as `9c1e60f`. The authenticated GitHub Pages legacy build for that commit reached `built` at 2026-11-11T15:02:02Z with no error. The live URL returned HTTP 200 and served `index-sE75Yq7Z.js` and `index-BldUQAmv.css`. The full browser E2E then passed all 42 checks against the live site, including the safe source links, the reviewed card footer, exactly one app address in the SVG, zero external requests, empty browser storage and no page errors. GitHub Actions remain unavailable because of the billing lock, so CI is not claimed green.
