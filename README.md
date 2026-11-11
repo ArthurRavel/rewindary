@@ -31,7 +31,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 - **Privacy receipt.** After your files are parsed, the review screen shows what this tab actually did: requests to other sites (none), attempts the Content-Security-Policy blocked, how many page files loaded from the site itself, and whether anything was saved in the browser. It reads the browser's own request log (Resource Timing) and CSP reports, shows hosts only (never paths or queries), sends nothing, and can be re-checked at any time.
 - **Explains files it can't use.** If a dropped export has no usable history, the review screen says what it was and what to request instead: a Takeout with YouTube data but no history (and a reminder that big Takeouts come in several zips), a Spotify export without streaming history, a Netflix export without `ViewingActivity.csv`, or an unsupported archive. It reads only file and archive-entry names to decide, and you can add the missing export from the same screen.
 - **Netflix profile filter** for shared accounts, a year or all-time selector, and per-source toggles.
-- **Synthetic demo.** The demo generates two years of fake exports in the real formats and runs them through the same parsers as your files.
+- **Synthetic demo.** The demo generates two years of fake Spotify, Apple Music, Google Takeout and Netflix exports in the real formats and runs them through the same parsers as your files.
 
 ![Share card with its review panel](docs/media/share-card-review.png)
 
@@ -111,10 +111,10 @@ pnpm demo-gif         # re-capture screenshots from the build and regenerate doc
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 98 Vitest tests in 10 files, run in UTC.
+- `node scripts/run-tests.mjs`: 100 Vitest tests in 10 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
-  - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years.
+  - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years across all four services.
   - Redaction: all card formats and themes, review lines equal card lines, XML escaping.
   - Privacy receipt: same-origin vs external hosts, blocked attempts by host only, stored items.
   - Localized Takeouts: history under French, German and Spanish file names, the content check that decides what is kept (and that photo sidecars, bookmarks and Maps activity are not), thousands of tiny entries in one archive, stored (uncompressed) entries, and an entry with a compression method it cannot read.
@@ -122,10 +122,10 @@ What `verify` runs, exactly:
   - Unrecognised files: Takeout with YouTube data but no history (and split parts), Takeout of other products, Spotify and Netflix exports without history, unsupported archives, history-named files that don't parse.
   - Apple Music: header detection, only `PLAY_END` rows count (with a fallback when there are none), UTC timestamps, skips and broken rows, no Apple ID/IP/device in the events, the nested `Apple_Media_Services.zip` (one level only), a missing-artist export, the 30 s play rule, the shared music persona and listening run, the #1 artist on cards and a four-source legend that fits the card.
   - Source privacy scan.
-- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 74 KB of JS (≈28 KB gzipped) plus a 24 KB parser worker. Runtime dependencies are `preact` and `fflate`.
+- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 78 KB of JS (≈30 KB gzipped) plus a 26 KB parser worker. Runtime dependencies are `preact` and `fflate`.
 - `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle, and a strict CSP is present.
 - `node scripts/e2e.mjs`: drives the built site in headless Chromium, served under `/rewindary/` exactly like the GitHub Pages project site (any request outside that path fails the run). `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` runs the same checks against the deployed copy.
-  - Runs the demo through every slide (including the year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names.
+  - Runs the demo through every slide (including Apple Music and the four-source year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names.
   - Uploads zipped and plain fixtures for Spotify, Google and Netflix, and Apple's nested privacy zip (play activity read, its own story slide, the #1 artist hidden on the card review).
   - Checks zero external requests, that the CSP blocks a deliberate `fetch`, empty storage, and no page errors.
   - Checks that the privacy receipt reports no external requests, then surfaces the deliberate blocked `fetch` by host only after "Check again".

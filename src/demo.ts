@@ -24,6 +24,8 @@ const TOPICS = ['restoring a', 'why every', 'I tried a', 'the hidden history of 
 const THINGS = ['vintage radio', 'tiny house', 'mechanical keyboard', 'sourdough starter', 'lighthouse', 'night train', 'pocket synth', 'paper map'];
 const SHOWS: [string, number][] = [['The Lighthouse Accord', 2], ['Harbor Lights', 1], ['Copper Valley', 3], ['Ninth Garden', 1], ['Static Season', 2], ['The Long Ferry', 1]];
 const FILMS = ['A Map of Rain', 'Midnight Ferry', 'The Quiet Orbit', 'Paper Crowns'];
+const APPLE_ARTISTS = ['Marrow Coast', 'Opal Freight', 'The Glasshouse Tenants', 'Fernlight Assembly', 'Copper Moth', 'Lumen Avenue'];
+const APPLE_HEADER = ['Apple ID Number', 'Artist Name', 'Client IP Address', 'Device Identifier', 'End Reason Type', 'Event End Timestamp', 'Event Start Timestamp', 'Event Type', 'Media Duration In Milliseconds', 'Play Duration Milliseconds', 'Song Name', 'Store Front Name'];
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const utc = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
@@ -125,6 +127,7 @@ export function demoFiles(year = 2025, seed = 7): DemoFile[] {
   // A quieter year before, so the demo can show a year-over-year comparison. Generated last
   // so the main year's numbers stay exactly as they were.
   simulateYear(year - 1, 0.8);
+  const apple = appleMusic(year, seed);
   // Takeout lists activity newest first.
   const newestFirst = (a: Activity, b: Activity) => b.time.localeCompare(a.time);
   watch.sort(newestFirst);
@@ -136,5 +139,44 @@ export function demoFiles(year = 2025, seed = 7): DemoFile[] {
     { name: 'Takeout/YouTube and YouTube Music/history/watch-history.json', text: JSON.stringify(watch) },
     { name: 'Takeout/YouTube and YouTube Music/history/search-history.json', text: JSON.stringify(search) },
     { name: 'netflix-report/CONTENT_INTERACTION/ViewingActivity.csv', text: csv + '\n' },
+    { name: 'Apple_Media_Services/Apple Music Activity/Apple Music Play Activity.csv', text: apple },
   ];
+}
+
+/**
+ * Apple Music on the phone, for morning runs and weekend walks, over both demo years. It has its
+ * own random stream, so the Spotify, YouTube and Netflix exports are exactly what they were
+ * before Apple Music joined the demo. Rows come in PLAY_START/PLAY_END pairs like the real file.
+ */
+function appleMusic(year: number, seed: number): string {
+  const r = rng(seed ^ 0xa991e);
+  const pick = <T,>(xs: T[]) => xs[Math.floor(r() * xs.length)];
+  const zipf = <T,>(xs: T[]) => xs[Math.min(xs.length - 1, Math.floor(xs.length * Math.pow(r(), 2)))];
+  const songs = APPLE_ARTISTS.map((a) => Array.from({ length: 10 }, () => `${pick(WORDS)} ${pick(WORDS)}`).map((s) => [a, s] as const));
+  const rows: string[][] = [APPLE_HEADER];
+  const iso = (t: number) => new Date(t).toISOString();
+  const session = (start: Date, minutes: number) => {
+    let t = start.getTime();
+    const end = t + minutes * 60_000;
+    while (t < end) {
+      const [artist, song] = pick(zipf(songs));
+      const full = (160 + Math.floor(r() * 100)) * 1000;
+      const played = r() < 0.12 ? 2000 + Math.floor(r() * 20000) : full;
+      const common = ['1234567890', artist, '192.0.2.44', 'SYNTHETIC-DEVICE-0001'];
+      rows.push([...common, '', '', iso(t), 'PLAY_START', String(full), '', song, 'ZZ']);
+      rows.push([...common, played < full ? 'TRACK_SKIPPED_FORWARDS' : 'NATURAL_END_OF_TRACK', iso(t + played), iso(t), 'PLAY_END', String(full), String(played), song, 'ZZ']);
+      t += played + 1000;
+    }
+  };
+  for (const y of [year - 1, year]) {
+    for (let d = new Date(y, 0, 1); d.getFullYear() === y; d = new Date(y, d.getMonth(), d.getDate() + 1)) {
+      const m = d.getMonth();
+      if (m === 7 && d.getDate() >= 9 && d.getDate() <= 17) continue; // the same offline summer week
+      const weekend = d.getDay() === 0 || d.getDay() === 6;
+      const at = (h: number, min: number) => new Date(y, m, d.getDate(), h, min);
+      if (!weekend && r() < (y === year ? 0.35 : 0.25)) session(at(7, Math.floor(r() * 20)), 25 + r() * 20);
+      if (weekend && r() < 0.4) session(at(10, Math.floor(r() * 40)), 40 + r() * 50);
+    }
+  }
+  return rows.map((row) => row.map((c) => (/[",]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n') + '\n';
 }
