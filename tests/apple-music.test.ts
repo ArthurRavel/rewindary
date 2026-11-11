@@ -32,6 +32,12 @@ describe('Apple Music play activity', () => {
     expect(r.report.warnings).toEqual([]);
   });
 
+  it('reads the same plays from a CRLF copy of the file (as Apple may ship it)', () => {
+    const crlf = parseTextFile('Apple Music Play Activity.csv', fixture(CSV).replace(/\n/g, '\r\n'))!;
+    expect(crlf.events).toEqual(r.events);
+    expect(crlf.report.skipped).toBe(r.report.skipped);
+  });
+
   it('reads start times as UTC, and falls back to end minus duration', () => {
     expect(new Date(r.events[0].t).toISOString()).toBe('2025-03-14T21:02:11.000Z');
     expect(r.events[0].ms).toBe(210_000);
