@@ -45,7 +45,7 @@ await page.getByTestId('demo').waitFor();
 await snap('home');
 await page.getByTestId('demo').click();
 await page.getByTestId('reports').waitFor();
-check((await page.getByTestId('reports').locator('li').count()) === 4, 'demo produces 4 parsed export files');
+check((await page.getByTestId('reports').locator('li').count()) === 5, 'demo produces 5 parsed export files (Spotify, Apple Music, 2 Takeout, Netflix)');
 const receipt = page.getByTestId('receipt');
 check(/No requests to other sites recorded/.test(await receipt.innerText()) && (await page.getByTestId('receipt-external').innerText()) === 'none' && (await page.getByTestId('receipt-blocked').innerText()) === 'none', 'privacy receipt reports no external or blocked requests after the demo');
 await page.getByTestId('play').click();
@@ -60,8 +60,8 @@ for (let i = 0; i < 20; i++) {
   if (id === 'end') break;
   await page.locator('.tap.next').click();
 }
-check(['intro', 'total', 'change', 'clock', 'seasons', 'busiest', 'spotify', 'youtube', 'netflix', 'rhythm', 'persona', 'end'].every((s) => slideIds.includes(s)), `story slides: ${slideIds.join(', ')}`);
-check(/Compared with 2024/.test(changeText) && /^\+\d+%\n/.test(changeText) && /from Jan 1 to Dec \d+ in both years/.test(changeText) && (changeText.match(/ → /g) ?? []).length === 3, `year-over-year slide compares 2025 with the same dates of 2024, per source: ${JSON.stringify(changeText.split('\n').slice(0, 3))}`);
+check(['intro', 'total', 'change', 'clock', 'seasons', 'busiest', 'spotify', 'applemusic', 'youtube', 'netflix', 'rhythm', 'persona', 'end'].every((s) => slideIds.includes(s)), `story slides: ${slideIds.join(', ')}`);
+check(/Compared with 2024/.test(changeText) && /^\+\d+%\n/.test(changeText) && /from Jan 1 to Dec \d+ in both years/.test(changeText) && (changeText.match(/ → /g) ?? []).length === 4, `year-over-year slide compares 2025 with the same dates of 2024, for each of the 4 sources: ${JSON.stringify(changeText.split('\n').slice(0, 3))}`);
 await page.getByText('Create share card').click();
 await page.setViewportSize({ width: 1280, height: 860 });
 await page.getByTestId('card-preview').waitFor();
@@ -80,7 +80,7 @@ check(png.readUInt32BE(16) === 1080 && png.readUInt32BE(20) === 1920, 'PNG is 10
 const dl2 = page.waitForEvent('download');
 await page.getByRole('button', { name: 'SVG' }).click();
 const svg = readFileSync(await (await dl2).path(), 'utf8');
-const demoNames = ['Velvet Static', 'Mira Calloway', 'Bench Lab Builds', 'Slow Kitchen', 'Lighthouse Accord', 'Copper Valley', 'Harbor Lights', 'Sam', 'Guest'];
+const demoNames = ['Velvet Static', 'Mira Calloway', 'Marrow Coast', 'Bench Lab Builds', 'Slow Kitchen', 'Lighthouse Accord', 'Copper Valley', 'Harbor Lights', 'Sam', 'Guest'];
 check(!demoNames.some((n) => svg.includes(n)), 'default SVG card contains no artist, channel, show or profile names');
 await page.locator('.reveal input').first().check();
 const dl3 = page.waitForEvent('download');

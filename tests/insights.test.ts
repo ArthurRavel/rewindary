@@ -118,8 +118,13 @@ describe('synthetic demo dataset (through the real parsers)', () => {
   const demo = loadDemo(2025);
   const ins = computeInsights(demo.events, 2025);
   it('produces a full, varied year', () => {
-    expect(demo.reports.map((r) => r.source).sort()).toEqual(['netflix', 'spotify', 'youtube', 'youtube']);
-    expect(ins.sources.map((s) => s.source)).toEqual(['spotify', 'youtube', 'netflix']);
+    expect(demo.reports.map((r) => r.source).sort()).toEqual(['applemusic', 'netflix', 'spotify', 'youtube', 'youtube']);
+    expect(ins.sources.map((s) => s.source)).toEqual(['spotify', 'applemusic', 'youtube', 'netflix']);
+    // Apple Music is a smaller second music service with its own invented artists.
+    const am = ins.sources.find((s) => s.source === 'applemusic')!;
+    expect(am.ms).toBeGreaterThan(50 * H);
+    expect(am.ms).toBeLessThan(ins.sources.find((s) => s.source === 'spotify')!.ms);
+    expect(am.top[0].name).toBe('Marrow Coast');
     expect(ins.totalMs / H).toBeGreaterThan(300);
     expect(ins.longestBreak.days).toBeGreaterThanOrEqual(9);
     expect(ins.rabbitHole!.count).toBeGreaterThanOrEqual(20);
@@ -131,14 +136,22 @@ describe('synthetic demo dataset (through the real parsers)', () => {
     expect(defaultYear(demo.events)).toBe(2025);
     const vs = ins.vsLastYear!;
     expect(vs.prevYear).toBe(2024);
-    expect(vs.sources.map((s) => s.source)).toEqual(['spotify', 'youtube', 'netflix']);
-    // Both years stop where the stalest source does (the demo's last Netflix night in late December).
+    expect(vs.sources.map((s) => s.source)).toEqual(['spotify', 'applemusic', 'youtube', 'netflix']);
+    // Both years stop where the stalest source does (a late-December day, not Dec 31).
     expect(vs.through?.month).toBe(11);
     expect(vs.ms).toBeLessThanOrEqual(ins.totalMs);
     expect(vs.ms).toBeGreaterThan(ins.totalMs * 0.95);
     expect(vs.ms / vs.prevMs).toBeGreaterThan(1.1);
     expect(vs.estimated).toBe(true); // YouTube durations
     expect(computeInsights(demo.events, 2024).vsLastYear).toBeNull();
+  });
+  it('runs its Apple Music export through the real play-activity parser', () => {
+    const report = demo.reports.find((r) => r.source === 'applemusic')!;
+    expect(report.file).toMatch(/Apple Music Play Activity\.csv$/);
+    expect(report.skipped).toBeGreaterThan(0); // short plays are dropped, as in a real export
+    // The synthetic Apple ID, IP address and device never reach the events' text fields.
+    const text = demo.events.flatMap((e) => Object.values(e).filter((v): v is string => typeof v === 'string'));
+    expect(text.filter((v) => /1234567890|192\.0\.2\.44|SYNTHETIC-DEVICE/.test(v))).toEqual([]);
   });
   it('is deterministic', () => {
     expect(computeInsights(loadDemo(2025).events, 2025).totalMs).toBe(ins.totalMs);
