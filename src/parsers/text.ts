@@ -6,8 +6,18 @@ export function stripBom(s: string): string {
 
 /** RFC 4180-ish CSV parser: quoted fields, escaped quotes, CRLF/LF, BOM. */
 export function parseCsv(text: string): string[][] {
-  const s = stripBom(text);
   const rows: string[][] = [];
+  eachCsvRow(text, (r) => { rows.push(r); });
+  return rows;
+}
+
+/**
+ * The same parser, one row at a time, so a large export (Apple Music play activity can hold
+ * hundreds of thousands of 40-column rows) never becomes one huge array of arrays.
+ */
+export function eachCsvRow(text: string, onRow: (row: string[]) => void): void {
+  const s = stripBom(text);
+  const rows = { push: onRow };
   let row: string[] = [];
   let field = '';
   let quoted = false;
@@ -36,7 +46,6 @@ export function parseCsv(text: string): string[][] {
     row.push(field);
     if (row.length > 1 || row[0] !== '') rows.push(row);
   }
-  return rows;
 }
 
 const ENTITIES: Record<string, string> = {

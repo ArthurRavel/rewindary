@@ -1,5 +1,5 @@
 import type { Insights } from './insights';
-import { SOURCE_LABEL } from './model';
+import { MUSIC_SOURCES, SOURCE_LABEL } from './model';
 import { dayClockArcs, splitSegments } from './charts';
 import { dayLabel, escapeXml, hourLabel, hours, num, truncate, wrap } from './format';
 
@@ -35,14 +35,15 @@ export const HIDDEN = '•••••';
 export function cardLines(ins: Insights, reveal: ReadonlySet<RevealId>): CardLine[] {
   const lines: CardLine[] = [];
   const by = (s: string) => ins.sources.find((x) => x.source === s);
-  const spotify = by('spotify');
+  // With both Spotify and Apple Music, the #1 artist comes from the one you listened to most.
+  const music = ins.sources.filter((s) => MUSIC_SOURCES.has(s.source) && s.top.length).sort((a, b) => b.ms - a.ms)[0];
   const netflix = by('netflix');
   const youtube = by('youtube');
   const named = (id: RevealId, name: string) => (reveal.has(id) ? truncate(name, 26) : HIDDEN);
 
   lines.push({ id: 'peak', label: 'Peak hour', value: hourLabel(ins.peakHour) });
   if (ins.streak.days > 1) lines.push({ id: 'streak', label: 'Longest streak', value: `${num(ins.streak.days)} days in a row` });
-  const artist = spotify?.top[0];
+  const artist = music?.top[0];
   if (artist) lines.push({ id: 'topArtist', label: '#1 artist', value: `${named('topArtist', artist.name)} · ${num(artist.count)} plays`, revealId: 'topArtist', revealed: reveal.has('topArtist') });
   const show = netflix?.top[0];
   if (show) lines.push({ id: 'topShow', label: '#1 on Netflix', value: `${named('topShow', show.name)} · ${hours(show.ms)} h`, revealId: 'topShow', revealed: reveal.has('topShow') });
@@ -63,7 +64,8 @@ const PALETTES: Record<CardTheme, Palette> = {
 const FONT = `system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif`;
 
 export function mediaPhrase(ins: Insights): string {
-  const parts = ins.sources.filter((s) => s.ms > 0).map((s) => ({ spotify: 'music', youtube: 'videos', netflix: 'shows', google: '' })[s.source]).filter(Boolean);
+  const words = ins.sources.filter((s) => s.ms > 0).map((s) => ({ spotify: 'music', applemusic: 'music', youtube: 'videos', netflix: 'shows', google: '' })[s.source]);
+  const parts = [...new Set(words)].filter(Boolean);
   if (parts.length <= 1) return parts.length ? `of ${parts[0]}` : 'tracked';
   return `of ${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
@@ -120,12 +122,14 @@ export function renderCardSvg(ins: Insights, opts: CardOptions): string {
   o.push(`<rect x="80" y="${y}" width="${W - 160}" height="30" rx="15" fill="${p.track}"/>`);
   for (const s of seg) o.push(`<rect x="${(80 + s.x).toFixed(1)}" y="${y}" width="${s.w.toFixed(1)}" height="30" rx="15" fill="${s.color}"/>`);
   y += 76;
+  // Four media sources ("Apple Music 20%" is long) no longer fit one row at full size, so the legend scales down to fit.
+  const legend = seg.map((s) => ({ s, label: `${SOURCE_LABEL[s.source]} ${Math.round(s.share * 100)}%` }));
+  const k = Math.min(1, (W - 160) / legend.reduce((n, l) => n + 32 + l.label.length * 18 + 36, -36));
   let lx = 80;
-  for (const s of seg) {
-    const label = `${SOURCE_LABEL[s.source]} ${Math.round(s.share * 100)}%`;
-    o.push(`<circle cx="${lx + 11}" cy="${y - 11}" r="11" fill="${s.color}"/>`);
-    o.push(t(lx + 32, y, 32, label, `fill="${p.fg}"`));
-    lx += 32 + label.length * 18 + 36;
+  for (const { s, label } of legend) {
+    o.push(`<circle cx="${(lx + 11 * k).toFixed(1)}" cy="${(y - 11 * k).toFixed(1)}" r="${(11 * k).toFixed(1)}" fill="${s.color}"/>`);
+    o.push(t(Math.round(lx + 32 * k), y, Math.round(32 * k), label, `fill="${p.fg}"`));
+    lx += (32 + label.length * 18 + 36) * k;
   }
   if (story) {
     const cx = W / 2;

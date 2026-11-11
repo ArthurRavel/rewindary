@@ -2,7 +2,7 @@
   "name": "rewindary",
   "version": "0.1.0",
   "private": true,
-  "description": "Your Spotify, YouTube and Netflix year, rewound into one story \u2014 entirely in your browser.",
+  "description": "Your Spotify, Apple Music, YouTube and Netflix year, rewound into one story \u2014 entirely in your browser.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@9.15.0",

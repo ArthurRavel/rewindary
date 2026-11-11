@@ -152,6 +152,30 @@ const frReports = await page.getByTestId('reports').innerText();
 check(/Takeout activity \(JSON\)/.test(frReports) && (await page.getByTestId('ignored').count()) === 0, 'a Takeout with French file names is read by content, with no note about the photo sidecar');
 check(external.length === 0, `still no request left ${app} after the French Takeout`);
 
+console.log('Apple Music');
+// Apple's privacy download is a zip holding Apple_Media_Services.zip, which holds the play activity CSV.
+writeFileSync(join(dir, 'Apple Media Services information.zip'), zipSync({
+  'Apple Media Services information/Apple_Media_Services.zip': zipSync({
+    'Apple Music Activity/Apple Music Play Activity.csv': fx('apple/Apple Music Play Activity.csv'),
+    'Apple Music Activity/Apple Music Library Tracks.json': new TextEncoder().encode('[]'),
+  }),
+}));
+await page.goto(app);
+await page.getByTestId('file-input').setInputFiles(join(dir, 'Apple Media Services information.zip'));
+await page.getByTestId('play').waitFor();
+const appleReports = await page.getByTestId('reports').innerText();
+check(/Apple Music play activity — 6 entries, 3 skipped/.test(appleReports) && (await page.getByTestId('ignored').count()) === 0, `the nested Apple privacy zip is opened and its play activity read (${appleReports.split('\n')[0]})`);
+await page.getByTestId('play').click();
+await page.locator('.story').waitFor();
+for (let i = 0; i < 15 && (await page.locator('.story').getAttribute('data-slide')) !== 'applemusic'; i++) await page.locator('.tap.next').click();
+const appleSlide = await page.locator('.story .slide').innerText();
+check((await page.locator('.story').getAttribute('data-slide')) === 'applemusic' && /Apple Music/i.test(appleSlide) && /Marrow Coast/.test(appleSlide), `Apple Music gets its own story slide with the top artist (${appleSlide.replace(/\s+/g, ' ').slice(0, 80)})`);
+for (let i = 0; i < 15 && (await page.locator('.story').getAttribute('data-slide')) !== 'end'; i++) await page.locator('.tap.next').click();
+await page.getByRole('button', { name: 'Create share card' }).click();
+const appleReview = await page.locator('.review').innerText();
+check(/#1 artist/.test(appleReview) && !/Marrow Coast/.test(appleReview), 'the share card lists the Apple Music #1 artist as hidden by default');
+check(external.length === 0, `still no request left ${app} after the Apple Music upload`);
+
 console.log('Unzipped folders');
 // Safari on macOS unzips downloads by default, so exports often arrive as folders. These go through the real folder pickers.
 const put = (path, data) => { mkdirSync(join(dir, path, '..'), { recursive: true }); writeFileSync(join(dir, path), data); };

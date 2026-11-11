@@ -18,6 +18,19 @@ export const GUIDES: Guide[] = [
     note: 'The quicker “Account data” export also works (StreamingHistory_music_*.json) but only covers about one year and has no podcasts detail.',
   },
   {
+    source: 'applemusic',
+    title: 'Apple Music — Apple Media Services information',
+    wait: 'Apple says it can take up to 7 days.',
+    steps: [
+      'Sign in at privacy.apple.com and choose “Request a copy of your data”.',
+      'Select only “Apple Media Services information” (that is where Apple Music lives), continue and complete the request.',
+      'When Apple’s “ready” email arrives, download the zip. If it comes in several parts, download them all.',
+      'Drop the zip here as-is: Rewindary opens the Apple_Media_Services.zip inside it for you.',
+    ],
+    file: 'Apple Music Activity/Apple Music Play Activity.csv',
+    note: 'Only song, artist, times and play durations are read. The Apple ID, IP address and device columns in that file are never looked at. Plays under 5 seconds are skipped.',
+  },
+  {
     source: 'youtube',
     title: 'YouTube & Google Search — Google Takeout',
     wait: 'Usually minutes to a few hours.',

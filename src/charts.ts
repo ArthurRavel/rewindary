@@ -3,6 +3,7 @@ import { SOURCE_ORDER } from './model';
 
 export const SOURCE_COLOR: Record<SourceId, string> = {
   spotify: '#3ddc97',
+  applemusic: '#5cc8ff',
   youtube: '#ff6b6b',
   netflix: '#ffb547',
   google: '#9b8cff',

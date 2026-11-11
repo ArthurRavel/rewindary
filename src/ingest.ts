@@ -2,6 +2,7 @@ import { Unzip, UnzipInflate } from 'fflate';
 import type { IngestResult, LifeEvent, ParseReport } from './model';
 import { isSpotifyAccount, isSpotifyExtended, parseSpotifyAccount, parseSpotifyExtended } from './parsers/spotify';
 import { looksLikeNetflixCsv, parseNetflixActivity, parseNetflixSimple } from './parsers/netflix';
+import { looksLikeAppleMusicCsv, parseAppleMusicActivity } from './parsers/apple';
 import { estimateYouTubeDurations, isGoogleActivity, looksLikeGoogleActivityHtml, parseGoogleActivity } from './parsers/google';
 import { parseCsv, stripBom } from './parsers/text';
 import { entrySignals, explainFile, explainFolder, explainZip, type IgnoredFile, type Signal } from './diagnose';
@@ -38,7 +39,7 @@ export function isInterestingPath(path: string): boolean {
   const p = path.toLowerCase();
   if (!/\.(json|csv|html?)$/.test(p)) return false;
   const base = p.split('/').pop() ?? '';
-  return /streaming_history|streaminghistory|endsong|viewingactivity|netflixviewinghistory|watch-history|search-history|myactivity/.test(
+  return /streaming_history|streaminghistory|endsong|viewingactivity|netflixviewinghistory|applemusicplayactivity|watch-history|search-history|myactivity/.test(
     base.replace(/\s/g, ''),
   );
 }
@@ -65,16 +66,40 @@ export function looksLikeActivityHead(head: string): boolean {
   return s.startsWith('<') && s.includes('outer-cell') && s.includes('content-cell');
 }
 
+/**
+ * Apple's privacy download wraps its data in a second zip ("Apple_Media_Services.zip" inside
+ * "Apple Media Services information.zip"). That inner archive is the only one unpacked from inside
+ * another, one level deep, and only up to this size; it is then read with the same rules as any zip.
+ */
+export const isNestedArchive = (path: string) => /(^|\/)apple_media_services[^/]*\.zip$/i.test(path);
+const MAX_NESTED_BYTES = 1024 * 1024 * 1024;
+
 type Progress = (msg: string) => void;
 interface TextFile { path: string; text: string; /** Found by looking at its content, not its name. */ probed: boolean }
 
-async function unzipInteresting(blob: InputBlob, onProgress: Progress, signals: Set<Signal>): Promise<TextFile[]> {
+async function unzipInteresting(blob: InputBlob, onProgress: Progress, signals: Set<Signal>, nestedOk = true): Promise<TextFile[]> {
   const files: TextFile[] = [];
+  const inner: InputBlob[] = [];
   let probes = 0;
   const pending: Promise<void>[] = [];
   const unzip = new Unzip((entry) => {
     // Names only: they say which service the archive came from if no history is found.
     for (const s of entrySignals(entry.name)) signals.add(s);
+    if (nestedOk && isNestedArchive(entry.name) && !(entry.originalSize !== undefined && entry.originalSize > MAX_NESTED_BYTES)) {
+      const parts: Uint8Array[] = [];
+      pending.push(new Promise<void>((resolve, reject) => {
+        entry.ondata = (err, data, final) => {
+          if (err) return reject(err);
+          parts.push(data);
+          if (final) {
+            inner.push(archiveBlob(entry.name.split('/').pop()!, `${blob.path ?? blob.name}/${entry.name}`, new Blob(parts as BlobPart[])));
+            resolve();
+          }
+        };
+      }));
+      entry.start();
+      return;
+    }
     const named = isInterestingPath(entry.name);
     const probe = !named && probes < MAX_PROBES && /\.(json|html?)$/i.test(entry.name) && !(entry.originalSize !== undefined && entry.originalSize > MAX_PROBE_ENTRY_BYTES);
     if (!named && !probe) return;
@@ -129,7 +154,13 @@ async function unzipInteresting(blob: InputBlob, onProgress: Progress, signals: 
     onProgress(`Unpacking ${blob.name} — ${Math.round((read / Math.max(blob.size, 1)) * 100)}%`);
   }
   await Promise.all(pending);
+  for (const z of inner) files.push(...(await unzipInteresting(z, onProgress, signals, false)));
   return files;
+}
+
+/** An archive that was itself inside an archive, readable like a dropped file. */
+function archiveBlob(name: string, path: string, b: Blob): InputBlob {
+  return { name, size: b.size, path, stream: () => b.stream(), text: () => b.text(), slice: (s, e) => b.slice(s, e) };
 }
 
 function concat(chunks: Uint8Array[]): Uint8Array {
@@ -164,10 +195,12 @@ export function parseTextFile(path: string, rawText: string): Parsed | null {
     return null;
   }
   if (lower.endsWith('.csv')) {
-    const firstLine = parseCsv(text.slice(0, 2000).split(/\r?\n/)[0] ?? '')[0] ?? [];
+    // Apple Music's header has about 40 columns, so look further than one short line.
+    const firstLine = parseCsv(text.slice(0, 8000).split(/\r?\n/)[0] ?? '')[0] ?? [];
     const kind = looksLikeNetflixCsv(firstLine);
     if (kind === 'activity') return parseNetflixActivity(text, path);
     if (kind === 'simple') return parseNetflixSimple(text, path);
+    if (looksLikeAppleMusicCsv(firstLine)) return parseAppleMusicActivity(text, path);
     return null;
   }
   if (/\.html?$/.test(lower) && looksLikeGoogleActivityHtml(text)) return parseGoogleActivity(text, path);

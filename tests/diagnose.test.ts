@@ -43,7 +43,7 @@ describe('explaining zips without history', () => {
 
   it('says plainly when an unrelated archive is not supported', async () => {
     expect(await hintFor('instagram-me-2026.zip', { 'your_instagram_activity/likes/liked_posts.json': junk })).toMatch(/Instagram and Facebook exports are not supported/);
-    expect(await hintFor('photos.zip', { 'IMG_0001.jpg': new Uint8Array(10) })).toBe('No Spotify, YouTube, Google Search or Netflix history inside this zip.');
+    expect(await hintFor('photos.zip', { 'IMG_0001.jpg': new Uint8Array(10) })).toBe('No Spotify, Apple Music, YouTube, Google Search or Netflix history inside this zip.');
   });
 
   it('keeps parsing the history it does find and only explains the rest', async () => {
@@ -66,7 +66,7 @@ describe('explaining loose files', () => {
 
   it('names the service for known non-history files and rejects other types', () => {
     expect(explainFile('YourLibrary.json', false)).toMatch(/Spotify export has no listening history/);
-    expect(explainFile('notes.json', false)).toMatch(/Not a Spotify, YouTube, Google Search or Netflix history file/);
+    expect(explainFile('notes.json', false)).toMatch(/Not a Spotify, Apple Music, YouTube, Google Search or Netflix history file/);
     expect(explainFile('holiday.mp4', false)).toBe('Only .zip, .json, .csv and .html exports can be read.');
   });
 
