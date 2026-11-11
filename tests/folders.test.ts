@@ -84,7 +84,7 @@ describe('unzipped export folders', () => {
     expect(r.ignored[0].hint).toMatch(/YouTube data but no watch or search history/);
     expect(r.ignored[0].hint).not.toMatch(/split/); // a folder name says nothing about split parts
     expect(r.ignored[1].hint).toMatch(/Extended streaming history/);
-    expect(r.ignored[2].hint).toBe('No Spotify, YouTube, Google Search or Netflix history inside this folder.');
+    expect(r.ignored[2].hint).toBe('No Spotify, Apple Music, YouTube, Google Search or Netflix history inside this folder.');
   });
 
   it('reads zips inside a folder, and does not add a folder note on top of a zip note', async () => {

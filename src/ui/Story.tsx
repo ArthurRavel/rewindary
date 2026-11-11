@@ -74,6 +74,7 @@ function Top({ items, unit }: { items: { name: string; value: string }[]; unit?:
 export function buildSlides(ins: Insights): Slide[] {
   const by = (s: SourceId) => ins.sources.find((x) => x.source === s);
   const sp = by('spotify');
+  const am = by('applemusic');
   const yt = by('youtube');
   const nf = by('netflix');
   const gs = by('google');
@@ -162,16 +163,25 @@ export function buildSlides(ins: Insights): Slide[] {
       </>),
     });
   }
-  if (sp && sp.ms > 0) slides.push({
-    id: 'spotify', tone: 'spotify',
-    body: (<>
-      <p class="kicker rise">Spotify</p>
-      <h2 class="big rise" style="animation-delay:150ms">{hours(sp.ms)} hours of sound</h2>
-      <Top items={sp.top.map((t) => ({ name: t.name, value: num(t.count) }))} unit=" plays" />
-      {sp.topTitles[0] && <p class="note rise" style="animation-delay:900ms">On repeat: <b>{sp.topTitles[0].name}</b> ({num(sp.topTitles[0].count)}×)</p>}
-      {ins.marathon && <p class="note rise" style="animation-delay:1000ms">Longest listening run: {duration(ins.marathon.ms)} without a break.</p>}
-    </>),
-  });
+  // The listening run is computed across both music services, so it is told once, on the first music slide.
+  let runTold = false;
+  for (const m of [sp, am]) {
+    if (!m || m.ms <= 0) continue;
+    // Some Apple Music exports have no artist names: rank the songs instead.
+    const byArtist = m.top.length > 0;
+    const showRun: boolean = !runTold && ins.marathon !== null;
+    runTold ||= showRun;
+    slides.push({
+      id: m.source, tone: m.source,
+      body: (<>
+        <p class="kicker rise">{SOURCE_LABEL[m.source]}</p>
+        <h2 class="big rise" style="animation-delay:150ms">{hours(m.ms)} hours of sound</h2>
+        <Top items={(byArtist ? m.top : m.topTitles).map((t) => ({ name: t.name, value: num(t.count) }))} unit=" plays" />
+        {byArtist && m.topTitles[0] && <p class="note rise" style="animation-delay:900ms">On repeat: <b>{m.topTitles[0].name}</b> ({num(m.topTitles[0].count)}×)</p>}
+        {showRun && <p class="note rise" style="animation-delay:1000ms">Longest listening run: {duration(ins.marathon!.ms)} without a break.</p>}
+      </>),
+    });
+  }
   if (yt && (yt.ms > 0 || yt.searches > 0)) slides.push({
     id: 'youtube', tone: 'youtube',
     body: (<>

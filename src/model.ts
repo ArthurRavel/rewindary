@@ -5,10 +5,10 @@
  */
 import type { IgnoredFile } from './diagnose';
 
-export type SourceId = 'spotify' | 'youtube' | 'netflix' | 'google';
+export type SourceId = 'spotify' | 'applemusic' | 'youtube' | 'netflix' | 'google';
 
 export type EventKind =
-  | 'music' // a song (Spotify, YouTube Music)
+  | 'music' // a song (Spotify, Apple Music, YouTube Music)
   | 'podcast' // podcast episode or audiobook chapter
   | 'video' // a YouTube video
   | 'episode' // an episode of a series (Netflix)
@@ -54,9 +54,13 @@ export interface IngestResult {
 
 export const SOURCE_LABEL: Record<SourceId, string> = {
   spotify: 'Spotify',
+  applemusic: 'Apple Music',
   youtube: 'YouTube',
   netflix: 'Netflix',
   google: 'Google Search',
 };
 
-export const SOURCE_ORDER: SourceId[] = ['spotify', 'youtube', 'netflix', 'google'];
+export const SOURCE_ORDER: SourceId[] = ['spotify', 'applemusic', 'youtube', 'netflix', 'google'];
+
+/** Sources whose events are songs and podcasts: plays count after 30 s, and they feed the listening run and second-screen time. */
+export const MUSIC_SOURCES: ReadonlySet<SourceId> = new Set(['spotify', 'applemusic']);

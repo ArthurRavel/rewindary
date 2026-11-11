@@ -12,7 +12,7 @@ export function Home({ onFiles, onDrop, onDemo, status, error }: {
     <main class="home">
       <header class="hero">
         <p class="brand"><Mark />Rewindary</p>
-        <h1 tabIndex={-1} data-stage-focus>Your year, rewound —<br /><span class="grad">Spotify, YouTube and Netflix</span> in one story.</h1>
+        <h1 tabIndex={-1} data-stage-focus>Your year, rewound —<br /><span class="grad">Spotify, Apple Music, YouTube and Netflix</span> in one story.</h1>
         <p class="lead">Drop your official data exports and get an animated year-in-review plus a share card that hides names by default. Everything is computed on this device: no upload, no account, no tracking.</p>
       </header>
       <label
@@ -24,7 +24,7 @@ export function Home({ onFiles, onDrop, onDemo, status, error }: {
         <input type="file" multiple accept=".zip,.json,.csv,.html,.htm" onChange={(e) => pick(e.currentTarget)} data-testid="file-input" />
         <span class="drop-icon" aria-hidden="true">{!status && <Icon name="upload" size={24} />}</span>
         <span class="drop-title">{status ?? 'Drop your export .zip files here'}</span>
-        <span class="drop-sub">{status ? 'Working locally…' : 'or click to choose — Spotify, Google Takeout and Netflix zips, or the JSON/CSV/HTML files inside'}</span>
+        <span class="drop-sub">{status ? 'Working locally…' : 'or click to choose — Spotify, Apple, Google Takeout and Netflix zips, or the JSON/CSV/HTML files inside'}</span>
       </label>
       <p class="folder-pick fine">
         Already unzipped? Drop the folder, or{' '}
@@ -53,7 +53,7 @@ export function Home({ onFiles, onDrop, onDemo, status, error }: {
       </section>
       <footer class="foot">
         <p>Open source (MIT). No analytics, no cookies, no remote fonts. Open DevTools → Network and watch: nothing goes out.</p>
-        <p class="fine">Not affiliated with Spotify, Google, YouTube or Netflix.</p>
+        <p class="fine">Not affiliated with Spotify, Apple, Google, YouTube or Netflix.</p>
       </footer>
     </main>
   );

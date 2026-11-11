@@ -4,9 +4,9 @@
 
 # Rewindary
 
-**Your Spotify, YouTube and Netflix year, rewound into one story, entirely in your browser.**
+**Your Spotify, Apple Music, YouTube and Netflix year, rewound into one story, entirely in your browser.**
 
-Drop the official data exports and you get an animated, mobile-first year in review that reads across all three services (your day clock, your seasons, your busiest day, binges, rabbit holes and streaks), plus a share card that hides names and exact dates until you opt in. No upload, no account, no API key, nothing to install.
+Drop the official data exports and you get an animated, mobile-first year in review that reads across all of them (your day clock, your seasons, your busiest day, binges, rabbit holes and streaks), plus a share card that hides names and exact dates until you opt in. No upload, no account, no API key, nothing to install.
 
 <p align="center"><img src="docs/media/demo.gif" alt="Rewindary demo: start page, then the animated story slides, generated from synthetic data" width="320"></p>
 
@@ -14,7 +14,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 
 ## What it does
 
-- **Three import adapters:** Spotify extended streaming history (or the 1-year account data), Google Takeout (YouTube watch and search history, Google Search activity, in JSON or HTML), and Netflix viewing activity (full data request, or the quick titles-and-dates CSV). You can drop the `.zip` files as they are; known history files are decompressed in full and photos and videos are never inflated; other `.json` and `.html` entries only have their first 32 KB looked at, and are dropped unless they open like Google activity. A Takeout in another language (French, German, Spanish… file and folder names) is read too: the importer recognises Google activity by how the file starts, not by its name.
+- **Four import adapters:** Spotify extended streaming history (or the 1-year account data), Apple Music play activity (Apple's privacy download, read straight from its nested `Apple_Media_Services.zip`), Google Takeout (YouTube watch and search history, Google Search activity, in JSON or HTML), and Netflix viewing activity (full data request, or the quick titles-and-dates CSV). You can drop the `.zip` files as they are; known history files are decompressed in full and photos and videos are never inflated; other `.json` and `.html` entries only have their first 32 KB looked at, and are dropped unless they open like Google activity. A Takeout in another language (French, German, Spanish… file and folder names) is read too: the importer recognises Google activity by how the file starts, not by its name.
 - **Unzipped folders work too.** Safari on macOS unzips downloads by default, so an export often arrives as a folder (`Takeout/`, `Spotify Extended Streaming History/`). Drop the folder, or use "choose a folder" (desktop browsers; the option is hidden on phones and tablets). Inside a folder the same rules apply as inside a zip: only `.zip`, `.json`, `.csv` and `.html` files are opened, Google Photos sidecars (`IMG_0001.jpg.json`) and media are skipped by name, and a folder with no history gets one note saying which export to request.
 - **One local event model.** Every source becomes the same `LifeEvent` shape (`src/model.ts`), so the metrics run across sources:
   - total hours and the share for each source
@@ -23,7 +23,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
   - how the year compares with the one before, over the same dates and per source (a source counts only when its history reaches back to that January, and both years stop where the stalest export ends, so an unfinished year is never set against a full one)
   - your most plugged-in day, broken down by source
   - your longest daily streak and longest offline break
-  - your biggest Netflix binge, deepest YouTube rabbit hole and longest music run
+  - your biggest Netflix binge, deepest YouTube rabbit hole and longest music run (Spotify and Apple Music together)
   - "second screen" time, when music played while a video or show was on
   - a persona such as *Midnight Soundtracker* or *Weekend Binge Scholar*
 - **A story:** tap or arrow keys to move, auto-advance with pause, and support for `prefers-reduced-motion`.
@@ -42,7 +42,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 | Files never leave the device | Parsing runs in a Web Worker on `File` objects. The production `index.html` ships a Content-Security-Policy with `connect-src 'none'`, `default-src 'none'`, no remote scripts, fonts or styles | E2E test in real Chromium: fails if *any* request leaves the local origin, and checks that a deliberate `fetch()` to a remote host is **blocked** by the CSP |
 | No telemetry, analytics, CDNs or remote fonts | No such code exists; system font stack only | `tests/privacy-source.test.ts` scans the source for network APIs. `scripts/check-dist.mjs` scans the built bundle for remote URLs and network APIs and checks that the CSP is present |
 | Nothing persisted | No cookies, `localStorage`, `IndexedDB` or service worker. Closing the tab forgets everything | E2E asserts empty `localStorage`, `sessionStorage` and cookies |
-| Minimal data kept in memory | Adapters drop IP addresses, countries, devices, platforms and bookmarks. **Search terms and URLs are discarded at parse time**, so a search becomes a bare timestamp. Ads, trailers, sub-minute previews and Spotify **private-session plays are excluded** | Parser tests assert that the synthetic IPs, queries, URLs and device names are absent from the parsed events |
+| Minimal data kept in memory | Adapters drop IP addresses, countries, devices, platforms, Apple IDs and bookmarks. **Search terms and URLs are discarded at parse time**, so a search becomes a bare timestamp. Ads, trailers, sub-minute previews and Spotify **private-session plays are excluded** | Parser tests assert that the synthetic IPs, queries, URLs and device names are absent from the parsed events |
 | Safe share cards | Names and exact dates are hidden by default. Titles, search terms, URLs and profile names are never on a card. User strings are XML-escaped | `tests/cards.test.ts` renders every format and theme from a full synthetic year and asserts that no name, title, profile, URL or exact date appears. The E2E test downloads the real PNG and SVG and checks them |
 
 **Threat model.** Rewindary protects you against the app itself, its hosting and its dependencies exfiltrating your history: the browser enforces the CSP even if the code had a bug. It also protects you from oversharing by accident through a card. It does **not** protect against a compromised browser or extension, or against someone with access to your unlocked device while the tab is open. The CSP is delivered as a `<meta>` tag because GitHub Pages cannot set headers. That covers network requests, but not `frame-ancestors`. If you don't want to trust the hosted copy, build it yourself (see below) and open `dist/` from any static server, or check DevTools → Network.
@@ -57,6 +57,12 @@ Exports come straight from each service and some take days, so request them firs
 1. Sign in at spotify.com and open Account → Privacy settings ("Download your data").
 2. Tick **Extended streaming history**, request it, and confirm the email.
 3. Download `my_spotify_data.zip` and drop it in as it is. Rewindary reads `Streaming_History_Audio_*.json` (older exports use `endsong_*.json`). The quicker "Account data" export (`StreamingHistory_music_*.json`) also works, but it covers only about a year. If you provide both, the extended history wins and duplicates are merged.
+
+**Apple Music: Apple Media Services information** (Apple says up to 7 days)
+1. Sign in at privacy.apple.com and choose **Request a copy of your data**.
+2. Select only **Apple Media Services information**, continue and complete the request.
+3. Download the zip from Apple's email (all parts, if it is split) and drop it as it is. Rewindary opens the `Apple_Media_Services.zip` inside it and reads `Apple Music Activity/Apple Music Play Activity.csv`. Only song, artist, times, play durations and the event type are read; the Apple ID, IP address, device and storefront columns are never looked at. A play is a `PLAY_END` row of at least 5 seconds. Some exports have no artist names; the story then ranks songs.
+4. The other files in that folder (for example `Apple Music - Play History Daily Tracks.csv`) are not read: they have no per-play times.
 
 **YouTube and Google Search: Google Takeout** (minutes to hours)
 1. Open takeout.google.com and click **Deselect all**.
@@ -75,7 +81,7 @@ We are **not** the first multi-source "wrapped" for personal data, and we don't 
 
 | Project | Sources | Where computation runs | Open source | Install |
 |---|---|---|---|---|
-| **Rewindary** | Spotify, YouTube + Google Search, Netflix | Browser only; CSP blocks all network; tested | Yes (MIT) | None (static page) |
+| **Rewindary** | Spotify, Apple Music, YouTube + Google Search, Netflix | Browser only; CSP blocks all network; tested | Yes (MIT) | None (static page) |
 | [superwrapped.com](https://superwrapped.com) | Netflix, Strava, Goodreads, Letterboxd, Google Maps | Raw data in browser; precomputed summaries may be sent out for insight generation | No | None |
 | [abdullahasghar966/life-wrapped](https://github.com/abdullahasghar966/life-wrapped) | Spotify, YouTube, Netflix (same combination as ours) | Browser (per its description) | No license stated | — |
 | [facebookresearch/personal-timeline](https://github.com/facebookresearch/personal-timeline) | Many personal-data sources, as a timeline | Local Python/Docker | Yes | Heavy |
@@ -88,7 +94,7 @@ What sets Rewindary apart, as plainly as we can say it:
 - a no-network guarantee enforced by the browser and verified by automated tests
 - zero install, MIT-licensed
 
-The Spotify + YouTube + Netflix combination on its own is *not* unique.
+The Spotify + YouTube + Netflix combination on its own is *not* unique. Apple Music support was added on 11 Nov 2026; we did not re-run the competitor survey for it.
 
 **Name audit.** "Unwrapped" (crowded on GitHub, npm package taken, `unwrapped.app` registered) and "Lifeprint" (taken) were rejected. On 9 Nov 2026, **Rewindary** returned no GitHub repositories and no npm package. `rewindary.com`, `.app`, `.io` and `.dev` didn't resolve, and a web search found no product by that name. This was not a trademark search.
 
@@ -105,7 +111,7 @@ pnpm demo-gif         # re-capture screenshots from the build and regenerate doc
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 82 Vitest tests in 9 files, run in UTC.
+- `node scripts/run-tests.mjs`: 98 Vitest tests in 10 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
   - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years.
@@ -114,12 +120,13 @@ What `verify` runs, exactly:
   - Localized Takeouts: history under French, German and Spanish file names, the content check that decides what is kept (and that photo sidecars, bookmarks and Maps activity are not), thousands of tiny entries in one archive, stored (uncompressed) entries, and an entry with a compression method it cannot read.
   - Unzipped folders: a Takeout folder gives the same events as its zip, photos and sidecars are never opened, unreadable peeked files are skipped, one note per folder without history, zips inside a folder, the batched directory walk.
   - Unrecognised files: Takeout with YouTube data but no history (and split parts), Takeout of other products, Spotify and Netflix exports without history, unsupported archives, history-named files that don't parse.
+  - Apple Music: header detection, only `PLAY_END` rows count (with a fallback when there are none), UTC timestamps, skips and broken rows, no Apple ID/IP/device in the events, the nested `Apple_Media_Services.zip` (one level only), a missing-artist export, the 30 s play rule, the shared music persona and listening run, the #1 artist on cards and a four-source legend that fits the card.
   - Source privacy scan.
 - `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 74 KB of JS (≈28 KB gzipped) plus a 24 KB parser worker. Runtime dependencies are `preact` and `fflate`.
 - `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle, and a strict CSP is present.
 - `node scripts/e2e.mjs`: drives the built site in headless Chromium, served under `/rewindary/` exactly like the GitHub Pages project site (any request outside that path fails the run). `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` runs the same checks against the deployed copy.
   - Runs the demo through every slide (including the year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names.
-  - Uploads zipped and plain fixtures for all three adapters.
+  - Uploads zipped and plain fixtures for Spotify, Google and Netflix, and Apple's nested privacy zip (play activity read, its own story slide, the #1 artist hidden on the card review).
   - Checks zero external requests, that the CSP blocks a deliberate `fetch`, empty storage, and no page errors.
   - Checks that the privacy receipt reports no external requests, then surfaces the deliberate blocked `fetch` by host only after "Check again".
   - Uploads a Takeout part with no history, checks the explanation and that there is nothing to play, then adds the missing export from the same screen.
@@ -137,7 +144,7 @@ The live site is served by GitHub Pages from the `gh-pages` branch, which holds 
 
 ```
 src/model.ts        unified LifeEvent model
-src/parsers/        spotify.ts · google.ts · netflix.ts · text.ts (CSV, entities, loose dates)
+src/parsers/        spotify.ts · apple.ts · google.ts · netflix.ts · text.ts (CSV, entities, loose dates)
 src/ingest.ts       streaming unzip + unzipped folders + format detection (by name, then by content) + merge/dedupe
 src/insights.ts     cross-source metrics and persona
 src/cards.ts        share-card lines + SVG renderer (redaction lives here)
@@ -151,6 +158,6 @@ docs/race-log.md    daily public race log
 
 ## License
 
-MIT. Not affiliated with Spotify, Google, YouTube or Netflix.
+MIT. Not affiliated with Spotify, Apple, Google, YouTube or Netflix.
 
 This is an experimental test project entirely managed by AI.

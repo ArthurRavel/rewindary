@@ -3,7 +3,7 @@
  * instead. It only looks at file, folder and archive-entry *names* (never contents, never inflating
  * anything extra) and keeps nothing but a few service flags.
  */
-export type Signal = 'spotify' | 'netflix' | 'takeout' | 'youtube' | 'meta';
+export type Signal = 'spotify' | 'apple' | 'netflix' | 'takeout' | 'youtube' | 'meta';
 
 export interface IgnoredFile {
   file: string;
@@ -19,6 +19,7 @@ export function entrySignals(path: string): Signal[] {
   const base = p.split('/').pop() ?? '';
   const out: Signal[] = [];
   if (/(^|\/)(my_spotify_data|spotify account data|spotify extended streaming history|spotify technical log information)\//.test(p) || SPOTIFY_FILES.test(base)) out.push('spotify');
+  if (/(^|\/)(apple music activity|apple_media_services[^/]*)\//.test(p) || /^apple_media_services[^/]*\.zip$/.test(base) || /^apple music\b[^/]*\.(csv|json)$/.test(base)) out.push('apple');
   if (/(^|\/)(content_interaction|clickstream|customer_service|payment_and_billing)\/[^/]+\.(csv|txt)$/.test(p) || /(^|\/)netflix[^/]*\//.test(p)) out.push('netflix');
   if (/(^|\/)takeout\//.test(p) || base === 'archive_browser.html') out.push('takeout');
   if (/(^|\/)(youtube[^/]*|my activity\/youtube)\//.test(p)) out.push('youtube');
@@ -30,8 +31,10 @@ export function entrySignals(path: string): Signal[] {
 const isSplitPart = (name: string) => /-\d{3}\.zip$/i.test(name);
 
 const SPOTIFY = 'This Spotify export has no listening history. On Spotify’s privacy page, request “Extended streaming history” (or “Account data” for the last year); the technical log export has none.';
+const APPLE = 'This Apple export has no Apple Music play activity. At privacy.apple.com, request “Apple Media Services information” and drop the zip as it is; Rewindary reads “Apple Music Play Activity.csv” inside it. Apple may split the download into parts: drop them all.';
+const APPLE_FILE = 'This Apple Music file has no per-play history. Drop “Apple Music Play Activity.csv” from the same “Apple Music Activity” folder, or the whole Apple zip.';
 const NETFLIX = 'This Netflix export has no viewing activity. It should contain CONTENT_INTERACTION/ViewingActivity.csv; or download “Viewing activity” from your profile for a quick CSV.';
-const META = 'Instagram and Facebook exports are not supported. Rewindary reads Spotify, YouTube, Google Search and Netflix history.';
+const META = 'Instagram and Facebook exports are not supported. Rewindary reads Spotify, Apple Music, YouTube, Google Search and Netflix history.';
 
 function takeoutHint(name: string, signals: ReadonlySet<Signal>): string {
   const base = signals.has('youtube')
@@ -42,17 +45,18 @@ function takeoutHint(name: string, signals: ReadonlySet<Signal>): string {
 
 /** A zip in which no known history file was found. */
 export function explainZip(name: string, signals: ReadonlySet<Signal>): string {
-  return explainService(name, signals) ?? (isSplitPart(name) ? takeoutHint(name, signals) : 'No Spotify, YouTube, Google Search or Netflix history inside this zip.');
+  return explainService(name, signals) ?? (isSplitPart(name) ? takeoutHint(name, signals) : 'No Spotify, Apple Music, YouTube, Google Search or Netflix history inside this zip.');
 }
 
 /** An unzipped export folder in which no known history file was found. A folder name says nothing about split parts. */
 export function explainFolder(signals: ReadonlySet<Signal>): string {
-  return explainService('', signals) ?? 'No Spotify, YouTube, Google Search or Netflix history inside this folder.';
+  return explainService('', signals) ?? 'No Spotify, Apple Music, YouTube, Google Search or Netflix history inside this folder.';
 }
 
 function explainService(name: string, signals: ReadonlySet<Signal>): string | null {
   if (signals.has('takeout')) return takeoutHint(name, signals);
   if (signals.has('spotify')) return SPOTIFY;
+  if (signals.has('apple')) return APPLE;
   if (signals.has('netflix')) return NETFLIX;
   if (signals.has('meta')) return META;
   return null;
@@ -63,8 +67,9 @@ export function explainFile(path: string, knownName: boolean): string {
   if (knownName) return 'The name looks like a history file, but its contents did not match a known format. It may be empty, cut short, or from a newer export layout.';
   const signals = new Set(entrySignals(path));
   if (signals.has('spotify')) return SPOTIFY;
+  if (signals.has('apple')) return APPLE_FILE;
   if (signals.has('netflix')) return NETFLIX;
   if (signals.has('meta')) return META;
-  if (/\.(json|csv|html?)$/i.test(path)) return 'Not a Spotify, YouTube, Google Search or Netflix history file. See “Get your data” on the start page for the files to look for.';
+  if (/\.(json|csv|html?)$/i.test(path)) return 'Not a Spotify, Apple Music, YouTube, Google Search or Netflix history file. See “Get your data” on the start page for the files to look for.';
   return 'Only .zip, .json, .csv and .html exports can be read.';
 }
