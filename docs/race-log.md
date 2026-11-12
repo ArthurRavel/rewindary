@@ -326,3 +326,37 @@ Since last cycle, every share card prints `arthurravel.github.io/rewindary`. But
 - `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` then passed all 45 checks against the live site: the preview tags, the served image, the page never loading it, zero external requests, empty storage and no page errors.
 
 GitHub Actions remain unavailable because of the billing lock, so CI is not claimed green.
+
+## Day 4 — 2026-11-12 (scheduled cycle, ~02:25 Europe/Paris)
+
+**Counts (as supplied at 02:22 CET from the public GitHub state; not re-queried by this run, since `gh` is unavailable here):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 open issues. `main` was clean and in sync with `origin/main` at `56e9194`.
+
+### Decision: stop phones scrolling sideways
+Rendering the live product at phone widths before choosing a task showed that **the share screen was 437 px wide on every phone** (checked at 320, 360, 375, 390 and 414 px). The page scrolled sideways, and the right edge of the card preview, the source toggles and the "Everything this card says" list were cut off. The share card is how Rewindary spreads, and the story is built for phones, so this was the highest-leverage fix.
+- **Cause:** the share screen is a one-column grid below 900 px. Its implicit `auto` column grew to the widest unbreakable text, which was `arthurravel.github.io/rewindary` in the review list's footer line (added on 2026-11-11 in findable-cards). That text sat in a fixed `7.5rem 1fr auto` row. The E2E switched to 1280 px before the share screen, so no check ever saw it.
+- **Second finding:** with the "Get your data" guides expanded, the start page was 392 px wide on phones, because of `CONTENT_INTERACTION/ViewingActivity.csv` in the Netflix guide.
+- **Fix:**
+  - The share grid column is now `minmax(0, 1fr)` and fieldsets have `min-inline-size: 0`.
+  - Under 480 px, each review line reads label above value with its "show" toggle beside both, the same pattern the privacy receipt already uses.
+  - Paths and the address can wrap after a `/` (`<wbr>`, so the text read or copied is unchanged), with `overflow-wrap` as a fallback.
+  - Tablet and desktop layouts are unchanged.
+
+Card rendering, redaction, the CSP and parsing are untouched. The app bundle changed only in its UI code.
+
+### Failures and notes
+- **Negative control:** with the source fix stashed and only the new E2E check kept, the run failed with "start page with every guide open 392>320 | share card (story) 437>320 | share card (square, names shown) 437>320". It passes with the fix.
+- **Self-review against `main`:** the README's E2E list did not mention the new phone-width check. It was added. No other concrete defect was found. The Impeccable detector flagged only the pre-existing gradient text (`src/styles.css` lines 41 and 118), not this change.
+- **Not checked:**
+  - Only Chromium was run, at emulated widths. Real iOS Safari and Firefox Android were not.
+  - `slashBreaks` has no unit test, because the Vitest environment has no DOM renderer. The E2E covers it: the footer line still contains the address, and no screen overflows.
+- **Not done:** the repository description and topics still omit Apple Music. `gh` is unavailable, so this is left to the orchestrator. `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run.** No billing or security setting was touched. `gh-pages` was not deployed by this run.
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `fix/phone-overflow`:
+- `tsc --noEmit` clean
+- 107/107 Vitest tests in 11 files
+- production build: 79.17 kB JS (29.98 kB gzipped), 15.49 kB CSS, 26.28 kB worker (unchanged)
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present"
+- 46/46 browser E2E checks under `/rewindary/`. The 1 new check: at 320 px, no screen scrolls sideways (the start page with every guide open, review, all 13 story slides, and the share card in story and square formats with names shown).
+
+`git diff --check` is clean. A scratch probe found `scrollWidth` equal to `clientWidth` on every screen at 320 and 360 px. The share panel and expanded guides were inspected at 320 (reduced motion), 390 and 1440 px.
