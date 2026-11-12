@@ -108,6 +108,36 @@ await page.getByRole('button', { name: 'Paper' }).click();
 await page.waitForTimeout(400);
 await snap('share-square');
 
+console.log('Phone layout');
+// The share screen and the export guides once scrolled sideways on every phone: a long address or file path set the width.
+await page.setViewportSize({ width: 320, height: 640 });
+const wide = [];
+const sideways = async (where) => {
+  const [sw, cw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
+  if (sw > cw) wide.push(`${where} ${sw}>${cw}`);
+};
+await page.goto(app);
+await page.getByTestId('demo').waitFor();
+await page.locator('.guides details').evaluateAll((all) => all.forEach((d) => { d.open = true; }));
+await sideways('start page with every guide open');
+await page.getByTestId('demo').click();
+await page.getByTestId('play').waitFor();
+await sideways('review');
+await page.getByTestId('play').click();
+for (let i = 0; i < 20; i++) {
+  const id = await page.locator('.story').getAttribute('data-slide');
+  await sideways(`slide ${id}`);
+  if (id === 'end') break;
+  await page.locator('.tap.next').click();
+}
+await page.getByText('Create share card').click();
+await page.getByTestId('card-preview').waitFor();
+await sideways('share card (story)');
+await page.getByRole('button', { name: 'Square 1:1' }).click();
+for (const box of await page.locator('.reveal input').all()) await box.check();
+await sideways('share card (square, names shown)');
+check(wide.length === 0, `no screen scrolls sideways at 320 px wide${wide.length ? ': ' + wide.join(' | ') : ''}`);
+
 console.log('Real-format fixture upload');
 const dir = mkdtempSync(join(tmpdir(), 'rewindary-e2e-'));
 writeFileSync(join(dir, 'takeout-synthetic.zip'), zipSync({

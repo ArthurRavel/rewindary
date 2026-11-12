@@ -68,7 +68,7 @@ button:focus-visible, a:focus-visible, .button:focus-within, .drop:focus-within,
 .promises { list-style: none; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin: 2.5rem 0; }
 .promises li { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 1.1rem; color: var(--dim); line-height: 1.45; }
 .promises b { color: var(--fg); display: block; margin-bottom: .3rem; }
-.guides details { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: .9rem 1.1rem; margin-bottom: .75rem; }
+.guides details { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: .9rem 1.1rem; margin-bottom: .75rem; overflow-wrap: break-word; }
 .guides details[open] { border-color: #ffffff2e; }
 .guides summary { cursor: pointer; font-weight: 700; display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: .1rem; row-gap: .2rem; list-style: none; border-radius: 8px; }
 .guides summary::-webkit-details-marker { display: none; }
@@ -89,7 +89,7 @@ button:focus-visible, a:focus-visible, .button:focus-within, .drop:focus-within,
 .controls { display: grid; gap: 1rem; margin-top: 1.5rem; }
 .controls > label { display: grid; gap: .4rem; font-weight: 700; }
 select { font: inherit; padding: .6rem .8rem; border-radius: 12px; background: var(--card); color: var(--fg); border: 1px solid var(--line); max-width: 260px; }
-fieldset { border: 1px solid var(--line); border-radius: 14px; padding: .7rem 1rem 1rem; margin: 0; }
+fieldset { border: 1px solid var(--line); border-radius: 14px; padding: .7rem 1rem 1rem; margin: 0; min-inline-size: 0; }
 legend { font-weight: 700; padding: 0 .4rem; }
 .check { display: inline-flex; align-items: center; gap: .45rem; margin: .35rem 1.2rem .1rem 0; cursor: pointer; }
 .check small { color: var(--dim); font-variant-numeric: tabular-nums; }
@@ -166,7 +166,8 @@ input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent
 }
 
 /* Share */
-.share { display: grid; gap: 2rem; max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 4rem; align-items: start; }
+/* minmax(0, 1fr): on phones the single column is the viewport, never the width of the longest word in the panel. */
+.share { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 4rem; align-items: start; }
 @media (min-width: 900px) { .share { grid-template-columns: minmax(0, 1fr) 420px; } .share-preview { position: sticky; top: 2rem; } }
 .share-preview { display: grid; justify-items: center; }
 .share-preview img { display: block; width: auto; height: auto; max-width: 100%; max-height: 86vh; border-radius: 18px; box-shadow: 0 20px 60px -10px #000a; transition: opacity 150ms ease; }
@@ -178,8 +179,9 @@ input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent
 .seg button[aria-pressed=true] { background: var(--fg); color: var(--bg); font-weight: 700; }
 @media (hover: hover) { .seg button[aria-pressed=false]:hover { color: var(--fg); } }
 .review ul { list-style: none; padding: 0; margin: .3rem 0; display: grid; gap: .45rem; }
-.review li { display: grid; grid-template-columns: 7.5rem 1fr auto; gap: .6rem; align-items: baseline; font-size: .95rem; }
+.review li { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto; gap: .6rem; align-items: baseline; font-size: .95rem; }
 .review li span { color: var(--dim); }
+.review li b { overflow-wrap: anywhere; }
 .review li.personal b { color: var(--netflix); }
 .reveal { font-size: .8rem; color: var(--dim); display: inline-flex; gap: .3rem; align-items: center; cursor: pointer; }
 .confirm { font-weight: 700; }
@@ -202,4 +204,10 @@ input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent
 @media (max-width: 480px) {
   .receipt dl { grid-template-columns: 1fr; gap: .1rem; }
   .receipt dd { text-align: left; margin-bottom: .5rem; }
+  /* Phones: each card line reads label over value, with its "show" toggle beside both, like the receipt above. */
+  .review ul { gap: .7rem; }
+  .review li { grid-template-columns: minmax(0, 1fr) auto; row-gap: .1rem; }
+  .review li span { font-size: .85rem; }
+  .review li b { grid-row: 2; }
+  .review li .reveal { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 }
