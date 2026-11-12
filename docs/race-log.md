@@ -558,3 +558,12 @@ Parsing, cards, redaction, the CSP and storage are untouched. Nothing new touche
   - zero external requests
 
 `git diff --check main` is clean. Drag states were inspected at 1440×900, 390×844 and 320×640 (reduced motion, where the overlay has no animation). `scrollWidth` equals `clientWidth` at every width.
+
+### Post-merge deploy and verification
+- **Merge:** product commits `0b210ce` and `3cc7a95` were merged to `main` as `d96a95a`.
+- **Independent local gate:** a full rerun passed TypeScript, 125/125 tests in 13 files, the production build (86.37 kB JS, 32.58 kB gzipped; 16.94 kB CSS; 26.28 kB worker), the strict 6-file privacy scan and all 64 E2E checks.
+- **Deploy:** the exact `dist` matched the `gh-pages` worktree and was published as `gh-pages` `d9a1e0e`.
+- **Pages build:** the explicitly triggered legacy Pages build `1364532679` for `d9a1e0e` reached `built` with no error (2026-11-12T23:03:02Z).
+- **Live E2E:** passed all 64 checks, including the 8 drop-anywhere checks, with zero external requests, empty storage and no page errors.
+
+GitHub Actions remain unavailable, so CI is not claimed green.
