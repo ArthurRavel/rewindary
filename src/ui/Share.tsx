@@ -4,6 +4,7 @@ import { computeInsights } from '../insights';
 import type { LifeEvent, SourceId } from '../model';
 import { SOURCE_LABEL } from '../model';
 import { slashBreaks } from './breaks';
+import { download } from './download';
 import { canCopyImage, copyPng, exportProblem, type ExportAction } from './exports';
 import { Icon } from './Icon';
 
@@ -23,15 +24,6 @@ async function svgToPng(svg: string, w: number, h: number): Promise<Blob> {
   } finally {
     URL.revokeObjectURL(url);
   }
-}
-
-function download(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function Share({ events, year, onBack }: { events: LifeEvent[]; year: number | null; onBack: () => void }) {

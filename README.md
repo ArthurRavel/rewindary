@@ -8,6 +8,8 @@
 
 Drop the official data exports and you get an animated, mobile-first year in review that reads across all of them (your day clock, your seasons, your busiest day, binges, rabbit holes and streaks), plus a share card that hides names and exact dates until you opt in. No upload, no account, no API key, nothing to install.
 
+**[Open Rewindary](https://arthurravel.github.io/rewindary/)** · or try it first with the built-in synthetic demo.
+
 <p align="center"><img src="docs/media/demo.gif" alt="Rewindary demo: start page, then the animated story slides, generated from synthetic data" width="320"></p>
 
 <sub>The GIF shows real screenshots of the production build, captured automatically by <code>scripts/e2e.mjs --shots</code>. All data in it is synthetic: the artists, channels and shows are invented.</sub>
@@ -32,6 +34,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 - **Explains files it can't use.** If a dropped export has no usable history, the review screen says what it was and what to request instead: a Takeout with YouTube data but no history (and a reminder that big Takeouts come in several zips), a Spotify export without streaming history, a Netflix export without `ViewingActivity.csv`, or an unsupported archive. It reads only file and archive-entry names to decide, and you can add the missing export from the same screen.
 - **Link previews.** Pasting the app's address into a chat or a post shows a title, a one-line description and a preview image (`public/og.jpg`, 1200×630) instead of a bare URL. The image shows the synthetic demo's default share card, with the #1 artist hidden; `pnpm og-image` re-captures it from the production build. The tags are only read by whatever unfurls the link: the page itself never loads the image.
 - **A link to the code.** The start page and the end of the story link to this repository, so "open source" can be checked. It is a plain link, opened in a new tab with no referrer only if you click it; nothing is loaded from it.
+- **Export reminder.** Most exports take days, and Rewindary stores nothing, so the start page offers a calendar reminder to come back: pick 3 days, 1 week or 30 days and **Add to calendar** downloads an `.ics` event at 6 PM local time on that day, with an alert. It is built on the device and holds a fixed title and text, that time, the address of the page it was made on (read from the page, without query or fragment), and the creation time and random ID every calendar event carries: nothing from your exports, and nothing is sent.
 - **Netflix profile filter** for shared accounts, a year or all-time selector, and per-source toggles.
 - **Synthetic demo.** The demo generates two years of fake Spotify, Apple Music, Google Takeout and Netflix exports in the real formats and runs them through the same parsers as your files.
 
@@ -114,7 +117,7 @@ pnpm og-image         # re-capture public/og.jpg, the link-preview image, from t
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 114 Vitest tests in 12 files, run in UTC.
+- `node scripts/run-tests.mjs`: 125 Vitest tests in 13 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
   - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years across all four services.
@@ -126,11 +129,13 @@ What `verify` runs, exactly:
   - Apple Music: header detection, only `PLAY_END` rows count (with a fallback when there are none), UTC timestamps, skips and broken rows, no Apple ID/IP/device in the events, the nested `Apple_Media_Services.zip` (one level only), a missing-artist export, the 30 s play rule, the shared music persona and listening run, the #1 artist on cards and a four-source legend that fits the card.
   - Link previews: the build adds Open Graph and X tags whose only absolute URLs are the app's own address and its `og.jpg`, copies the page's title and description (a quote in them cannot break a tag), and the image is a 1200×630 JPEG under 300 KB.
   - Card exports: Copy image is offered only with a secure context, the Clipboard API and PNG support; the clipboard item is built inside the click, holding the PNG still being drawn; failure messages name a way out and never repeat card content; closing the share sheet is not an error.
+  - Export reminder: 6 PM local on the right calendar day across months, years, Feb 29 and a daylight-saving change; one event with a display alert in CRLF lines; floating local times and a UTC stamp; lines folded at 75 octets without splitting a character; text escaping; only the page's own address (none for a copy opened from disk), never pinned in the source.
   - Source privacy scan: no network APIs; the only remote URLs are the demo's synthetic data and the source-code link, which must open in a new tab with no referrer or opener.
-- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 81 KB of JS (≈31 KB gzipped) plus a 26 KB parser worker. Runtime dependencies are `preact` and `fflate`.
+- `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 84 KB of JS (≈32 KB gzipped) plus a 26 KB parser worker. Runtime dependencies are `preact` and `fflate`.
 - `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle (the exact source-code link is the one allowed URL besides the demo's synthetic data and the SVG namespace), and a strict CSP is present. It also checks that the link-preview tags point at the app's own address (the only other absolute URLs allowed in `index.html`) and that `og.jpg` ships as a 1200×630 JPEG under 300 KB.
 - `node scripts/e2e.mjs`: drives the built site in headless Chromium, served under `/rewindary/` exactly like the GitHub Pages project site (any request outside that path fails the run). `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` runs the same checks against the deployed copy.
   - Runs the demo through every slide (including Apple Music and the four-source year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names. Copies the card and reads a 1080×1920 PNG back from the clipboard (copy is gated by the same review), and checks that the "Copied" note clears when the card changes. Checks the source-code link on the start page and the end slide (new tab, no referrer or opener), the footer line in the review panel, and that the exported card carries the app address once and no other link.
+  - Picks "3 days" in the export reminder and downloads it: the file name and `DTSTART` are that day at 6 PM in the browser's time zone, it has an alert, its only address is the app's own, and the page confirms the saved file.
   - Uploads zipped and plain fixtures for Spotify, Google and Netflix, and Apple's nested privacy zip (play activity read, its own story slide, the #1 artist hidden on the card review).
   - Checks the link-preview tags, that `og.jpg` is served next to the app, and that the page never loads it.
   - At 320 px wide, checks that no screen scrolls sideways: the start page with every export guide open, the review screen, every story slide, and the share card in both formats with names shown.
@@ -157,6 +162,7 @@ src/insights.ts     cross-source metrics and persona
 src/cards.ts        share-card lines + SVG renderer (redaction lives here)
 src/receipt.ts      privacy receipt (reads Resource Timing + CSP reports, sends nothing)
 src/diagnose.ts     explains unrecognised files from their names (what to request instead)
+src/reminder.ts     calendar (.ics) reminder to come back when an export arrives
 src/demo.ts         deterministic synthetic exports
 src/ui/             Preact screens: Home, Review, Story, Share; folders.ts walks dropped and chosen folders
 scripts/            e2e, dist privacy scan, static server, GIF builder

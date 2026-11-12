@@ -151,6 +151,30 @@ for (const box of await page.locator('.reveal input').all()) await box.check();
 await sideways('share card (square, names shown)');
 check(wide.length === 0, `no screen scrolls sideways at 320 px wide${wide.length ? ': ' + wide.join(' | ') : ''}`);
 
+console.log('Export reminder');
+// Exports take days: the start page offers a calendar file to come back. It is built in the page and downloaded, nothing is sent.
+await page.setViewportSize({ width: 400, height: 760 });
+await page.goto(app);
+const reminder = page.getByTestId('reminder');
+await reminder.getByRole('button', { name: '3 days', exact: true }).click();
+// Expected day, in the browser's own time zone: 3 calendar days from today, at 6 PM.
+const due = await page.evaluate(() => {
+  const n = new Date();
+  const d = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 3, 18);
+  const p = (x) => String(x).padStart(2, '0');
+  return { ymd: `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`, dashed: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, label: `${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at 6 PM` };
+});
+check((await page.getByTestId('reminder-note').innerText()).startsWith(due.label), `the reminder says when it will go off (${due.label})`);
+const dlIcs = page.waitForEvent('download');
+await page.getByTestId('add-reminder').click();
+const icsDl = await dlIcs;
+const icsText = readFileSync(await icsDl.path(), 'utf8');
+const icsLines = icsText.replace(/\r\n /g, '').split('\r\n');
+check(icsDl.suggestedFilename() === `rewindary-reminder-${due.dashed}.ics` && icsLines[0] === 'BEGIN:VCALENDAR' && icsLines.includes(`DTSTART:${due.ymd}T180000`) && icsLines.includes('ACTION:DISPLAY'), `Add to calendar downloads a reminder event for ${due.dashed} at 6 PM, with an alert (${icsDl.suggestedFilename()})`);
+check(icsLines.includes(`URL:${app}`) && [...icsLines.join('\n').matchAll(/https?:\/\/[^\s\\]+/g)].every((m) => m[0] === app), `the reminder links back to this page (${app}) and nowhere else`);
+check((await page.getByTestId('reminder-note').innerText()).startsWith(`Saved rewindary-reminder-${due.dashed}.ics`), 'the start page confirms the saved file');
+check(external.length === 0, `still no request left ${app} after saving the reminder`);
+
 console.log('Real-format fixture upload');
 const dir = mkdtempSync(join(tmpdir(), 'rewindary-e2e-'));
 writeFileSync(join(dir, 'takeout-synthetic.zip'), zipSync({

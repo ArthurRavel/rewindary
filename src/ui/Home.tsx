@@ -3,6 +3,7 @@ import { FOLDER_PICKER, fromInput, type Picked } from './folders';
 import { GUIDES } from './guides';
 import { slashBreaks } from './breaks';
 import { Icon, Mark } from './Icon';
+import { Reminder } from './Reminder';
 import { SourceLink } from './SourceLink';
 
 export function Home({ onFiles, onDrop, onDemo, status, error }: {
@@ -52,6 +53,7 @@ export function Home({ onFiles, onDrop, onDemo, status, error }: {
             <p class="fine">Rewindary reads: <code>{slashBreaks(g.file)}</code>. {g.note && slashBreaks(g.note)}</p>
           </details>
         ))}
+        <Reminder />
       </section>
       <footer class="foot">
         <p>

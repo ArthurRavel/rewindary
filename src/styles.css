@@ -76,6 +76,20 @@ button:focus-visible, a:focus-visible, .button:focus-within, .drop:focus-within,
 .guides summary .icon { grid-column: 3; grid-row: 1; color: var(--dim); transition: transform 200ms var(--ease-out); }
 .guides details[open] summary .icon { transform: rotate(90deg); }
 .guides ol { line-height: 1.6; color: var(--fg); padding-left: 1.4rem; }
+/* Export reminder: same surface as the guides above it, one row of choice + action that wraps on phones. */
+.remind { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 1rem 1.1rem 1.1rem; margin-top: 1.25rem; }
+.remind h3 { font-size: 1rem; margin: 0; }
+.remind > .fine { margin: .3rem 0 .9rem; text-wrap: pretty; }
+.remind-row { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.remind-in { font-size: .9rem; color: var(--dim); flex-basis: 100%; margin-bottom: -.35rem; }
+.remind-row .seg { max-width: 100%; }
+.remind-row .seg button { white-space: nowrap; }
+@media (max-width: 480px) {
+  /* Phones: the three choices share the card's width equally, so none spills past the segment. */
+  .remind-row .seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .remind-row .seg button { padding: .5em .4em; }
+}
+.remind-note { margin: .8rem 0 0; font-size: .85rem; line-height: 1.5; color: var(--dim); text-wrap: pretty; overflow-wrap: anywhere; }
 .foot { margin-top: 3rem; border-top: 1px solid var(--line); padding-top: 1.2rem; color: var(--dim); }
 
 /* Review */
