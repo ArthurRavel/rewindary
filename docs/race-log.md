@@ -406,3 +406,13 @@ The card content, redaction, the review gate, the CSP and parsing are unchanged.
   - Every run still made zero external requests.
 
 `git diff --check` against `main` is clean. The share panel was inspected at 1440×900, 390×844 and 320×640 with reduced motion, before review, after copying, and with a refused clipboard (at 390). `scrollWidth` equals `clientWidth` in each case.
+
+### Post-merge deploy and verification
+- **Merge:** product commits `c0132df` and `f98bdde` were merged as `f9b960b`.
+- **Independent local gate:** a full `corepack pnpm@9.15.0 verify` passed TypeScript, 114/114 tests in 12 files, the production build, the 6-file strict privacy scan and all 48 local browser E2E checks.
+- **Deploy:** the exact verified `dist` was published as `gh-pages` `3efea22`.
+- **Pages build:** the authenticated legacy Pages build for `3efea22` reached `built` with no error (created 2026-11-12T06:55:15Z).
+- **Live E2E:** passed all 48 checks, including the clipboard PNG at 1080×1920, zero external requests, empty storage and no page errors.
+- **Email:** remote `main` and `gh-pages` use the required noreply email.
+
+GitHub Actions remain unavailable because of the billing lock, so CI is not claimed green.
