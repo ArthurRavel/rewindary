@@ -8,7 +8,7 @@ const CHOICE: Record<RemindDays, string> = { 3: '3 days', 7: '1 week', 30: '30 d
 /** "Requested an export?": downloads a calendar reminder made on this device, so the visitor can come back when it arrives. */
 export function Reminder() {
   const [days, setDays] = useState<RemindDays>(7);
-  const [saved, setSaved] = useState<string | null>(null);
+  const [saved, setSaved] = useState<{ name: string; label: string } | null>(null);
   const label = reminderLabel(reminderStart(new Date(), days));
   const choose = (d: RemindDays) => { setDays(d); setSaved(null); };
   const save = () => {
@@ -17,7 +17,8 @@ export function Reminder() {
     const ics = reminderIcs({ now, days, url: appAddress(location), uid });
     const name = reminderFileName(now, days);
     download(new Blob([ics], { type: 'text/calendar;charset=utf-8' }), name);
-    setSaved(name);
+    // The label comes from the same moment as the file, so the note names its day even just after midnight.
+    setSaved({ name, label: reminderLabel(reminderStart(now, days)) });
   };
   return (
     <section class="remind" aria-labelledby="remind-title" data-testid="reminder">
@@ -32,7 +33,7 @@ export function Reminder() {
       </div>
       <p class="remind-note" role="status" data-testid="reminder-note">
         {saved
-          ? <>Saved <code>{saved}</code>. Open it to add {label} to your calendar.</>
+          ? <>Saved <code>{saved.name}</code>. Open it to add {saved.label} to your calendar.</>
           : <>{label}, with an alert. The .ics file holds a title, that time and this page's address, nothing from your exports. It is made on this device and nothing is sent.</>}
       </p>
     </section>
