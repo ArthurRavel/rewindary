@@ -119,12 +119,12 @@ input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent
 .bars span { flex: 1; height: 3px; border-radius: 3px; background: #ffffff33; overflow: hidden; }
 .bars span b { display: block; height: 100%; background: #fff; transform: scaleX(0); transform-origin: left; }
 .bars .done b { transform: none; }
-.bars .now b { animation: fill linear forwards; animation-duration: inherit; }
+.bars .now b { animation: fill linear forwards; animation-duration: inherit; animation-delay: inherit; }
 .bars .now.paused b { animation-play-state: paused; }
 @keyframes fill { to { transform: none; } }
 .story-top { position: absolute; top: 22px; right: 10px; left: 10px; display: flex; justify-content: space-between; z-index: 4; }
 .slide { position: absolute; inset: 0; padding: 78px 26px 36px; display: flex; flex-direction: column; justify-content: center; z-index: 1; }
-.tap { position: absolute; top: 72px; bottom: 0; background: transparent; border: 0; border-radius: 0; z-index: 2; padding: 0; }
+.tap { position: absolute; top: 72px; bottom: 0; background: transparent; border: 0; border-radius: 0; z-index: 2; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .tap.prev { left: 0; width: 30%; } .tap.next { right: 0; width: 70%; }
 .slide.end { z-index: 3; }
 .slide.end .source { margin: 0; max-width: 34ch; }
