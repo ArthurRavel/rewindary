@@ -234,20 +234,65 @@ export function buildSlides(ins: Insights): Slide[] {
 }
 
 const SLIDE_MS = 7000;
+/** A press on a tap zone held at least this long was a pause, not a tap: letting go does not move on. */
+const HOLD_MS = 300;
+
+const tabHidden = () => document.visibilityState === 'hidden';
 
 export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => void; onExit: () => void }) {
   const slides = useMemo(() => buildSlides(ins), [ins]);
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(reducedMotion);
+  // Holding a tap zone and leaving the tab pause the story too, without touching the play/pause button.
+  const [held, setHeld] = useState(false);
+  const [hidden, setHidden] = useState(tabHidden);
   const storyRef = useRef<HTMLDivElement>(null);
   const shareRef = useRef<HTMLButtonElement>(null);
   const last = i === slides.length;
+  const stopped = paused || held || hidden || last;
   const go = useCallback((d: number) => setI((x) => Math.max(0, Math.min(slides.length, x + d))), [slides.length]);
+  // How long the current slide has already played, so a pause resumes where it stopped instead of
+  // starting the full 7 s again. A new slide gets a new record; a run that ends only adds to its own.
+  const clock = useRef({ slide: i, spent: 0 });
+  if (clock.current.slide !== i) clock.current = { slide: i, spent: 0 };
+  const spent = Math.round(clock.current.spent);
+  // A layout effect, so the timer is cleared as soon as the story stops: a plain effect waits for the
+  // next frame, which a hidden tab may not draw before the old timer fires.
+  useLayoutEffect(() => {
+    if (stopped) return;
+    const run = clock.current;
+    const from = performance.now();
+    const id = setTimeout(() => go(1), Math.max(0, SLIDE_MS - run.spent));
+    return () => { clearTimeout(id); run.spent += performance.now() - from; };
+  }, [i, stopped, go]);
   useEffect(() => {
-    if (paused || last) return;
-    const id = setTimeout(() => go(1), SLIDE_MS);
-    return () => clearTimeout(id);
-  }, [i, paused, last, go]);
+    const onVisibility = () => setHidden(tabHidden());
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+  // Press and hold pauses (as story viewers do); a quick tap still moves. Keyboard activation
+  // (Enter or Space on a focused tap zone) has no pointer press and always moves.
+  const pressedAt = useRef<number | null>(null);
+  const wasHold = useRef(false);
+  const press = (e: PointerEvent) => {
+    if (e.button !== 0) return;
+    pressedAt.current = performance.now();
+    wasHold.current = false;
+    setHeld(true);
+  };
+  const release = (e: PointerEvent) => {
+    // A touch also fires pointerleave right after pointerup: only the first event ends the press.
+    if (pressedAt.current === null) return;
+    wasHold.current = e.type === 'pointerup' && performance.now() - pressedAt.current >= HOLD_MS;
+    pressedAt.current = null;
+    setHeld(false);
+  };
+  const tap = (d: number) => (e: MouseEvent) => {
+    const hold = e.detail > 0 && wasHold.current;
+    wasHold.current = false;
+    if (!hold) go(d);
+  };
+  const tapProps = (d: number) => ({ onPointerDown: press, onPointerUp: release, onPointerCancel: release, onPointerLeave: release, onClick: tap(d) });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Space pauses, unless a real control has focus and should get its own activation.
@@ -263,6 +308,9 @@ export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => 
   // Reaching the end removes the tap zones; keep focus in the story by moving it to the main action.
   useEffect(() => {
     if (!last) return;
+    // The tap zones are gone, so a press still held there (the arrow key moved on) can never be released.
+    pressedAt.current = null;
+    setHeld(false);
     const active = document.activeElement;
     if (!active || active === document.body || storyRef.current?.contains(active)) shareRef.current?.focus({ preventScroll: true });
   }, [last]);
@@ -272,8 +320,12 @@ export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => 
       <div class={`story tone-${last ? 'mix' : slide.tone}`} data-slide={last ? 'end' : slide.id} ref={storyRef}
         tabIndex={-1} data-stage-focus role="region" aria-label="Your year in review">
         <div class="bars" aria-hidden="true">
-          {slides.map((s, k) => (
-            <span key={s.id} class={k < i ? 'done' : k === i ? (paused ? 'now paused' : 'now') : ''} style={k === i ? `animation-duration:${SLIDE_MS}ms` : ''}><b /></span>
+          {/* The current bar is redrawn each time the slide resumes, starting from the time already
+              played, so it fills up exactly when the slide moves on. */}
+          {slides.map((s, k) => k === i ? (
+            <span key={`${s.id}@${spent}`} class={stopped ? 'now paused' : 'now'} style={`animation-duration:${SLIDE_MS}ms;animation-delay:-${spent}ms`}><b /></span>
+          ) : (
+            <span key={s.id} class={k < i ? 'done' : ''}><b /></span>
           ))}
         </div>
         <div class="story-top">
@@ -294,8 +346,8 @@ export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => 
         ) : (
           <div class="slide" key={slide.id} aria-live="polite">{slide.body}</div>
         )}
-        {!last && <button class="tap prev" aria-label="Previous" onClick={() => go(-1)} />}
-        {!last && <button class="tap next" aria-label="Next" onClick={() => go(1)} />}
+        {!last && <button class="tap prev" aria-label="Previous" {...tapProps(-1)} />}
+        {!last && <button class="tap next" aria-label="Next" {...tapProps(1)} />}
       </div>
     </div>
   );

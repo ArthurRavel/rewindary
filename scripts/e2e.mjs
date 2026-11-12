@@ -151,6 +151,58 @@ for (const box of await page.locator('.reveal input').all()) await box.check();
 await sideways('share card (square, names shown)');
 check(wide.length === 0, `no screen scrolls sideways at 320 px wide${wide.length ? ': ' + wide.join(' | ') : ''}`);
 
+console.log('Story timing');
+// The story's timers run on a paused fake clock here, in a context of its own so the reminder below keeps real dates.
+const timedCtx = await browser.newContext({ viewport: { width: 400, height: 760 }, deviceScaleFactor: 1 });
+const timed = await timedCtx.newPage();
+timed.on('request', (r) => { if (!r.url().startsWith(app) && !/^(blob|data):/.test(r.url())) external.push(r.url()); });
+timed.on('pageerror', (e) => errors.push(String(e)));
+const t0 = Date.now();
+await timed.clock.install({ time: t0 });
+await timed.goto(app);
+await timed.clock.pauseAt(t0 + 60_000);
+await timed.getByTestId('demo').click();
+await timed.getByTestId('play').click();
+const slideNow = () => timed.locator('.story').getAttribute('data-slide');
+await timed.clock.runFor(4000);
+await timed.getByRole('button', { name: 'Pause' }).click();
+await timed.clock.runFor(20_000);
+const whilePaused = await slideNow();
+await timed.getByRole('button', { name: 'Play' }).click();
+const resumedAt = Number(/animation-delay:\s*-(\d+)ms/.exec(await timed.locator('.bars .now').getAttribute('style'))?.[1]);
+await timed.clock.runFor(2500);
+const early = await slideNow();
+await timed.clock.runFor(1000);
+const onTime = await slideNow();
+check(whilePaused === 'intro' && early === 'intro' && onTime === 'total' && Math.abs(resumedAt - 4000) <= 100,
+  `after a pause at 4 s the slide moves on 3 s after Play, not 7 s, and its bar resumes from ${resumedAt} ms (${whilePaused} → ${early} → ${onTime})`);
+const setVisibility = (state) => timed.evaluate((s) => {
+  Object.defineProperty(document, 'visibilityState', { value: s, configurable: true });
+  document.dispatchEvent(new Event('visibilitychange'));
+}, state);
+await timed.clock.runFor(2000);
+await setVisibility('hidden');
+await timed.clock.runFor(60_000);
+const whileHidden = await slideNow();
+await setVisibility('visible');
+await timed.clock.runFor(5500);
+check(whileHidden === 'total' && (await slideNow()) === 'change', `the story waits while the tab is hidden and carries on when it is back (${whileHidden} → ${await slideNow()})`);
+const tapBox = await timed.locator('.tap.next').boundingBox();
+await timed.mouse.move(tapBox.x + tapBox.width / 2, tapBox.y + tapBox.height / 2);
+await timed.mouse.down();
+await timed.clock.runFor(10_000);
+const whileHeld = await slideNow();
+await timed.mouse.up();
+const afterHold = await slideNow();
+await timed.locator('.tap.next').click();
+const afterTap = await slideNow();
+await timed.locator('.tap.next').focus();
+await timed.keyboard.press('Enter');
+const afterKey = await slideNow();
+check(whileHeld === 'change' && afterHold === 'change' && afterTap === 'clock' && afterKey === 'seasons',
+  `holding a tap zone pauses and letting go stays put; a quick tap and Enter still move on (${whileHeld} → ${afterHold} → ${afterTap} → ${afterKey})`);
+await timedCtx.close();
+
 console.log('Export reminder');
 // Exports take days: the start page offers a calendar file to come back. It is built in the page and downloaded, nothing is sent.
 await page.setViewportSize({ width: 400, height: 760 });
