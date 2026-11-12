@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { FOLDER_PICKER, fromInput, type Picked } from './folders';
 import { GUIDES } from './guides';
+import { slashBreaks } from './breaks';
 import { Icon, Mark } from './Icon';
 import { SourceLink } from './SourceLink';
 
@@ -47,8 +48,8 @@ export function Home({ onFiles, onDrop, onDemo, status, error }: {
         {GUIDES.map((g) => (
           <details key={g.title}>
             <summary><i class={`dot ${g.source}`} />{g.title}<Icon name="chevron" size={18} /><small>{g.wait}</small></summary>
-            <ol>{g.steps.map((s) => <li key={s}>{s}</li>)}</ol>
-            <p class="fine">Rewindary reads: <code>{g.file}</code>. {g.note}</p>
+            <ol>{g.steps.map((s) => <li key={s}>{slashBreaks(s)}</li>)}</ol>
+            <p class="fine">Rewindary reads: <code>{slashBreaks(g.file)}</code>. {g.note && slashBreaks(g.note)}</p>
           </details>
         ))}
       </section>
