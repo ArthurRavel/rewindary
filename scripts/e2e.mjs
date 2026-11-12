@@ -22,6 +22,8 @@ if (remote && !/\.[a-z0-9]+$/i.test(remote.pathname)) remote.pathname = remote.p
 const app = remote ? new URL('./', remote).href : local.url;
 const browser = await launch();
 const ctx = await browser.newContext({ viewport: { width: 400, height: 760 }, deviceScaleFactor: 1, acceptDownloads: true });
+// The copy check reads the card back from the clipboard; this only affects the test browser.
+await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(app).origin });
 const page = await ctx.newPage();
 const external = [];
 const errors = [];
@@ -86,8 +88,18 @@ check((review.match(/•••••/g) ?? []).length === 3, 'review lists 3 hid
 check(!/(January|February|March|April|May|June|July|August|September|October|November|December) \d/.test(review), 'no exact dates listed by default');
 check((await page.getByTestId('review-footer').innerText()).includes(SITE_ADDRESS), 'the review lists the card footer with the app address');
 const dl1 = page.waitForEvent('download');
-check(await page.getByText('Download PNG').isDisabled(), 'download disabled until the review is confirmed');
+check(await page.getByText('Download PNG').isDisabled() && await page.getByTestId('copy-image').isDisabled(), 'download and copy disabled until the review is confirmed');
 await page.getByTestId('confirm-review').check();
+await page.getByTestId('copy-image').click();
+await page.getByTestId('export-note').filter({ hasText: 'Copied' }).waitFor();
+// Read the card back from the clipboard, as a paste into a chat would.
+const copied = await page.evaluate(async () => {
+  const item = (await navigator.clipboard.read()).find((i) => i.types.includes('image/png'));
+  if (!item) return null;
+  const bmp = await createImageBitmap(await item.getType('image/png'));
+  return [bmp.width, bmp.height];
+});
+check(copied?.[0] === 1080 && copied?.[1] === 1920, `Copy image puts the 1080×1920 PNG card on the clipboard (${copied})`);
 await page.getByText('Download PNG').click();
 const png = readFileSync(await (await dl1).path());
 check(png.subarray(1, 4).toString() === 'PNG' && png.length > 20_000, `PNG exported (${png.length} bytes)`);
@@ -107,6 +119,7 @@ await page.getByRole('button', { name: 'Square 1:1' }).click();
 await page.getByRole('button', { name: 'Paper' }).click();
 await page.waitForTimeout(400);
 await snap('share-square');
+check((await page.getByTestId('export-note').innerText()) === '', 'the "Copied" note is cleared once the card changes');
 
 console.log('Phone layout');
 // The share screen and the export guides once scrolled sideways on every phone: a long address or file path set the width.

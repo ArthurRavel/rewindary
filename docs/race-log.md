@@ -369,3 +369,40 @@ Card rendering, redaction, the CSP and parsing are untouched. The app bundle cha
 - **Live E2E:** passed all 46 checks, including the 320 px no-horizontal-scroll check.
 
 GitHub Actions remain unavailable because of the billing lock, so CI is not claimed green.
+
+## Day 4, cycle 2 — 2026-11-12 (scheduled cycle)
+
+**Counts (as supplied at the start of the cycle; not re-queried by this run):** Rewindary 0 stars, 0 forks, no issues or PRs · Abo Killer 0 stars, 0 forks. `main` was clean at `0445e13`.
+
+### Decision: copy the card image
+A share card could leave the page as a PNG or SVG download, or through the native share sheet. That sheet only appears where the browser supports sharing files, which is mostly on phones. On a desktop, posting a card to Slack, Discord or X meant downloading it, finding the file and uploading it again. Export failures were silent: a PNG that failed to encode just did nothing, and every share-sheet error was swallowed. This cycle:
+- **Copy image.** The button sits next to SVG and is gated by the same "I've reviewed" checkbox. It puts the same 1080-px PNG on the clipboard; nothing else is ever written there. It is shown only when the page is a secure context with `navigator.clipboard.write` and `ClipboardItem` (and, where `ClipboardItem.supports` exists, PNG support).
+- **Clipboard item built inside the click.** The item is created synchronously, holding a promise for the PNG still being drawn. This is the documented pattern WebKit needs; it was *not* tested in Safari.
+- **Feedback.** A status line under the buttons says "Copied. Paste it into a post or a chat." The button's icon becomes a check. The note clears as soon as the card or the review changes, and a result that arrives for an older card is dropped. When the PNG, the copy or the share sheet fails, the note names the problem and the other format to use. It never repeats the error text. Closing the share sheet stays silent.
+- **Layout.** Download PNG keeps its own row. Copy image, SVG and Share… sit together below it at every width. Without this grouping, SVG wrapped alone onto a second row in the 420 px desktop panel.
+
+The card content, redaction, the review gate, the CSP and parsing are unchanged. Clipboard access needs no network, and the privacy scans still pass.
+
+### Failures and notes
+- **Self-review against `main`:**
+  - A later `.export-note` rule overrode `.error`'s text colour, which would have shown errors in grey. Fixed before the first render.
+  - The gate hint said "downloading and copying" even where Copy image is hidden. It now matches the buttons shown.
+  - No other concrete defect was found.
+- The Impeccable detector flagged only the pre-existing gradient text (`src/styles.css` lines 41 and 118), not this change.
+- **Not checked:**
+  - Only headless Chromium was run. Safari, Firefox and real paste targets (Slack, Discord, X) were not.
+  - Error states were checked visually by stubbing `navigator.clipboard.write` to reject in a scratch script, not in the E2E.
+- `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run.** No billing or security setting was touched. **Nothing was pushed, merged or deployed by this run.**
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `feat/copy-card-image`:
+- `tsc --noEmit` clean
+- 114/114 Vitest tests in 12 files (7 new in `tests/exports.test.ts`)
+- production build: 81.07 kB JS (30.68 kB gzipped), 15.75 kB CSS, 26.28 kB worker (unchanged)
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present"
+- 48/48 browser E2E checks under `/rewindary/`:
+  - The review-gate check now covers Copy image too.
+  - 2 new checks: Copy image puts a PNG on the clipboard that reads back as 1080×1920, and the "Copied" note clears once the card changes.
+  - Every run still made zero external requests.
+
+`git diff --check` against `main` is clean. The share panel was inspected at 1440×900, 390×844 and 320×640 with reduced motion, before review, after copying, and with a refused clipboard (at 390). `scrollWidth` equals `clientWidth` in each case.
