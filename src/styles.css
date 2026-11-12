@@ -173,7 +173,7 @@ input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent
 @keyframes lift { from { opacity: 0; transform: scaleY(.15); } }
 @keyframes grow { from { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) {
-  .rise, .bloom, .lift, .grow, .bars .now b, .drop.busy .drop-icon { animation: none !important; }
+  .rise, .bloom, .lift, .grow, .bars .now b, .drop.busy .drop-icon, .drop-veil { animation: none !important; }
   .story { transition: none; }
   .bars .now b { transform: none; opacity: .55; }
   button, .button, .drop, .drop-icon, .guides summary .icon { transition: none !important; }
@@ -208,6 +208,10 @@ input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent
 .export-note:empty { margin: 0; }
 .export-note.error { color: #ffb4b4; }
 .hint { margin: -.4rem 0 0; }
+/* Review screen: files dragged anywhere over the page are added. pointer-events: none keeps the drag on the page below. */
+.drop-veil { position: fixed; inset: 0; z-index: 20; padding: 1rem; background: #0d0a1af2; pointer-events: none; display: grid; animation: veil-in 160ms var(--ease-out) both; }
+.drop-veil-box { display: grid; place-content: center; justify-items: center; text-align: center; gap: .4rem; padding: 1.2rem; border: 2px dashed var(--accent); border-radius: 24px; background: #c89bff14; }
+@keyframes veil-in { from { opacity: 0; } }
 .toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: var(--card); border: 1px solid var(--line); padding: .7rem 1.2rem; border-radius: 999px; z-index: 10; }
 
 /* Privacy receipt (review screen) */

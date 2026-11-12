@@ -349,6 +349,49 @@ await page.getByText('No .zip, .json, .csv or .html files in this folder').waitF
 check(await page.getByTestId('demo').isVisible(), 'a dropped folder with nothing to read says so and stays on the start page');
 check(external.length === 0, `still no request left ${app} after the folder uploads`);
 
+console.log('Drops outside the drop zone');
+// Real drops through the DevTools protocol, so the browser's own default applies: a drop the page does not
+// take opens the file in the tab, which would throw away everything already parsed.
+const dragFiles = async (selector, files, types = ['dragEnter', 'dragOver', 'drop']) => {
+  const cdp = await ctx.newCDPSession(page);
+  const box = await page.locator(selector).first().boundingBox();
+  const at = { x: box.x + box.width / 2, y: box.y + Math.min(box.height / 2, 24), data: { items: [], files, dragOperationsMask: 1 } };
+  for (const type of types) await cdp.send('Input.dispatchDragEvent', { type, ...at });
+  await cdp.detach();
+};
+const spotifyJson = join(ROOT, 'tests/fixtures/spotify/Streaming_History_Audio_2024-2025_0.json');
+const netflixCsv = join(ROOT, 'tests/fixtures/netflix/ViewingActivity.csv');
+await page.goto(app);
+await page.getByTestId('demo').waitFor();
+await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 50)))); // the app's drop listener is added after the first paint
+// Reads each drop once it has been through every listener, so it sees whether the app kept the browser from opening the file
+// (this listener may be added before the app's own, which Preact registers after the first paint).
+await page.evaluate(() => { window.__drops = []; addEventListener('drop', (e) => setTimeout(() => window.__drops.push(e.defaultPrevented))); });
+await dragFiles('h1', [spotifyJson], ['dragEnter', 'dragOver']);
+check(await page.locator('.drop.drag').isVisible(), 'dragging a file anywhere over the start page lights up the drop zone');
+await dragFiles('h1', [spotifyJson], ['drop']);
+await page.getByTestId('play').waitFor({ timeout: 10_000 }).catch(() => {});
+check(page.url() === app && /Spotify extended/.test(await page.getByTestId('reports').innerText().catch(() => '')), `a file dropped on the start page's heading, outside the zone, is read in place (${page.url()})`);
+await dragFiles('h1', [netflixCsv], ['dragEnter', 'dragOver']);
+const veil = page.getByTestId('drop-veil');
+check(await veil.isVisible() && /Drop to add these files/.test(await veil.innerText()), 'dragging a file over the review screen shows where it will go');
+// A browser that skips the last dragleave must not leave the overlay over the page: the next mouse move clears it.
+await page.mouse.move(5, 5);
+check(!(await veil.isVisible()), 'the overlay goes away once the drag is over, even without a dragleave');
+await dragFiles('h1', [netflixCsv]);
+await page.waitForFunction(() => /Netflix viewing activity/.test(document.querySelector('[data-testid=reports]')?.textContent ?? ''), null, { timeout: 10_000 }).catch(() => {});
+const dropReports = await page.getByTestId('reports').innerText().catch(() => '');
+check(page.url() === app && /Spotify extended/.test(dropReports) && /Netflix viewing activity/.test(dropReports) && !(await veil.isVisible()), 'a file dropped on the review screen is added to what was already read');
+await page.getByTestId('play').click();
+await page.locator('.story').waitFor();
+const storySlide = await page.locator('.story').getAttribute('data-slide');
+await dragFiles('.story', [spotifyJson]);
+await page.waitForTimeout(300);
+check(page.url() === app && (await page.locator('.story').getAttribute('data-slide')) === storySlide && !(await veil.isVisible()), 'a file dropped on the story is ignored and the story stays open');
+const drops = await page.evaluate(() => window.__drops);
+check(drops.length >= 2 && drops.every(Boolean), `the browser never opens a dropped file in place of the app (${drops.length} drops, all handled: ${drops.every(Boolean)})`);
+check(external.length === 0, `still no request left ${app} after the page-wide drops`);
+
 console.log('Unrecognised exports');
 writeFileSync(join(dir, 'takeout-20261110T101500Z-001.zip'), zipSync({
   'Takeout/archive_browser.html': new TextEncoder().encode('<html></html>'),

@@ -5,6 +5,7 @@ import { num } from '../format';
 import { loadDemo } from '../pipeline';
 import { droppedEntries, fromInput, walkEntries, type Picked } from './folders';
 import { Home } from './Home';
+import { Icon } from './Icon';
 import { Review, type Filters } from './Review';
 import { Share } from './Share';
 import { Story } from './Story';
@@ -93,6 +94,55 @@ export function App() {
     );
   };
 
+  // Files are taken wherever they land on the start and review screens, not only on the drop zone.
+  // A drop the page does not take makes the browser open that file in place of the app, which
+  // throws away everything already read. The story and share screens refuse drops, so nothing is opened there either.
+  const [dragging, setDragging] = useState(false);
+  const dropTo = useRef({ stage, onDrop });
+  dropTo.current = { stage, onDrop };
+  useEffect(() => {
+    let depth = 0; // dragenter and dragleave fire for every element crossed; the drag has left the page when they balance
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
+    const takes = () => dropTo.current.stage === 'home' || dropTo.current.stage === 'review';
+    const enter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth++;
+      setDragging(takes());
+    };
+    const over = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer!.dropEffect = takes() ? 'copy' : 'none';
+    };
+    const leave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (!depth) setDragging(false);
+    };
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setDragging(false);
+      if (takes()) dropTo.current.onDrop(e.dataTransfer!);
+    };
+    // No mouse events fire during a drag, so one arriving means the drag is over even if a dragleave was missed.
+    const moved = () => { if (depth) { depth = 0; setDragging(false); } };
+    addEventListener('dragenter', enter);
+    addEventListener('dragover', over);
+    addEventListener('dragleave', leave);
+    addEventListener('drop', drop);
+    addEventListener('mousemove', moved);
+    return () => {
+      removeEventListener('dragenter', enter);
+      removeEventListener('dragover', over);
+      removeEventListener('dragleave', leave);
+      removeEventListener('drop', drop);
+      removeEventListener('mousemove', moved);
+    };
+  }, []);
+
   const filtered = useMemo(() => {
     if (!data) return [];
     return data.events.filter((e) => !filters.off.has(e.source) && (e.source !== 'netflix' || !e.profile || filters.profiles.has(e.profile)));
@@ -100,10 +150,19 @@ export function App() {
   const ins = useMemo(() => (stage === 'story' ? computeInsights(filtered, filters.year) : null), [filtered, filters.year, stage]);
 
   if (stage === 'home' || !data) {
-    return <Home onFiles={onFiles} onDrop={onDrop} onDemo={() => accept(loadDemo(), true)} status={status} error={error} />;
+    return <Home onFiles={onFiles} dragging={dragging} onDemo={() => accept(loadDemo(), true)} status={status} error={error} />;
   }
   if (stage === 'review') {
     return (<>
+      {dragging && (
+        <div class="drop-veil" aria-hidden="true" data-testid="drop-veil">
+          <div class="drop-veil-box">
+            <span class="drop-icon"><Icon name="upload" size={24} /></span>
+            <span class="drop-title">{demo ? 'Drop to replace the demo with your files' : 'Drop to add these files'}</span>
+            <span class="drop-sub">Read on this device. Nothing is uploaded.</span>
+          </div>
+        </div>
+      )}
       {status && <p class="toast" role="status">{status}</p>}
       {error && <p class="toast error" role="alert">{error}</p>}
       <Review data={data} demo={demo} filters={filters} setFilters={setFilters} onPlay={() => setStage('story')} onAddMore={onFiles}
