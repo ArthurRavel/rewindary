@@ -360,3 +360,12 @@ Card rendering, redaction, the CSP and parsing are untouched. The app bundle cha
 - 46/46 browser E2E checks under `/rewindary/`. The 1 new check: at 320 px, no screen scrolls sideways (the start page with every guide open, review, all 13 story slides, and the share card in story and square formats with names shown).
 
 `git diff --check` is clean. A scratch probe found `scrollWidth` equal to `clientWidth` on every screen at 320 and 360 px. The share panel and expanded guides were inspected at 320 (reduced motion), 390 and 1440 px.
+
+### Post-merge deploy and verification (2026-11-12)
+- **Repository metadata:** the repository description now names Spotify, Apple Music, YouTube and Netflix, and the `apple-music` topic was added. This closes the "not done" item above.
+- **Deploy:** the exact verified `dist` from product `main` `6eab989` was published as `gh-pages` `e346745`.
+- **Pages build:** the automatic legacy Pages build errored with no message. The explicitly triggered build `1361774309` then reached `built` for `e346745` after 319560 ms, at 2026-11-12T01:39:41Z.
+- **Live site:** the live HTML serves `index-BNbnZUa1.js` and `index-BHOnrStD.css`.
+- **Live E2E:** passed all 46 checks, including the 320 px no-horizontal-scroll check.
+
+GitHub Actions remain unavailable because of the billing lock, so CI is not claimed green.
