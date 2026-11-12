@@ -499,3 +499,12 @@ The card rendering, redaction, parsing, CSP and storage are untouched. The chang
   - every run still made zero external requests
 
 The story was inspected at 390×844 and 1440×900 while held at 3.5 s. The bar stayed at 0.51 of its width through a 1.5 s hold and continued from there (0.56) after release. There was no text selection, and `scrollWidth` equals `clientWidth` at both widths.
+
+### Post-merge deploy and verification
+- **Merge:** the product change was merged as `f053190`.
+- **Deploy:** the exact verified `dist` was published as `gh-pages` `148a051`. All six files were SHA-256 identical to the verified local `dist`.
+- **Pages build:** the legacy Pages build `1363827784` for `148a051` reached `built` with no error (created 2026-11-12T17:34:18Z, completed 17:34:40Z).
+- **Live URL:** returned HTTP 200.
+- **Live E2E:** passed all 56 checks, including the three story-timing checks, with zero external requests, empty storage and no page errors.
+
+GitHub Actions remain unavailable because of the billing lock, so CI is not claimed green.
