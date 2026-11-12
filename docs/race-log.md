@@ -456,3 +456,46 @@ Spotify and Netflix say their exports can take up to 30 days, and Apple up to 7.
   - still zero external requests
 
 `git diff --check main...HEAD` is clean. The reminder card was inspected at 320×640 (reduced motion), 390×844 and 1440×900, before saving, after saving, and with keyboard focus. `scrollWidth` equals `clientWidth` at every width.
+
+## Day 4, cycle 4 — 2026-11-12 (scheduled cycle, ~18:20 Europe/Paris)
+
+**Counts (as supplied at the start of the cycle; not re-queried by this run, since `gh` is unavailable here):** Rewindary 0 stars, 0 forks, 0 issues, 0 PRs · Abo Killer 0 stars, 0 forks, 0 issues, 0 PRs. `main` was clean and in sync with `origin/main` at `46d0ecc`.
+
+### Decision: keep the story's timing honest
+The story is the product's core experience on a phone and the path to the share card. Reading `src/ui/Story.tsx` showed three timing faults:
+- **Pause and Play were out of step.** Pausing froze the progress bar, but Play restarted a full 7 s timer while the bar resumed mid-way. After a pause at 4 s, the bar was full after 3 s and then sat full for 4 more seconds before the slide moved.
+- **The story kept going in the background.** Switching to another tab or app for a minute left you several slides further on.
+- **Press-and-hold skipped instead of pausing.** People who know story viewers hold a finger down to read. Here, releasing that press counted as a tap and skipped the slide.
+
+The fix:
+- **Resume from the time played.** The slide timer counts only time actually played, so Play resumes from that point. Each time the slide resumes, the bar is redrawn from that time with a negative `animation-delay`, so it fills exactly when the slide moves on.
+- **Hold to pause.** Holding a tap zone pauses, and letting go after 300 ms or more does not move on. A quick tap, the arrow keys, and Enter or Space on a focused tap zone behave as before.
+- **Wait in hidden tabs.** When `visibilitychange` reports the page hidden, the story pauses, and it carries on when the page is visible again. A pause the user chose stays paused.
+- **Tap zones** no longer start a text selection or a touch callout.
+
+The card rendering, redaction, parsing, CSP and storage are untouched. The change is limited to the story UI.
+
+### Failures and notes
+- **First E2E run:** one check failed only because the browser normalises the style attribute to `animation-delay: -4000ms`, with a space; the timing itself was right. The regex was fixed.
+- **Negative control:** with `src/ui/Story.tsx` and `src/styles.css` from `main` and only the new checks kept, the run reported "intro → intro → intro" 3.5 s after Play (no resume) and "netflix → rhythm" after a hidden minute (it advanced). The third check then crashed, because the old story had already reached its end slide. The first control attempt had crashed on a test id that `main` lacks. The check now selects the bar by its existing class, and the test id was removed.
+- **Review against `main`** found one concrete defect, fixed before committing. The timer was cleared in a plain `useEffect`, which Preact runs after the next frame. A hidden tab may not draw that frame, so with under a second left on a slide the old timer could still fire once. It now uses `useLayoutEffect`. No other defect was found. The checks covered touch `pointerleave` after `pointerup`, keyboard activation, Space on a tap zone, right-click, a hold that an arrow key carried to the end slide, Replay and reduced motion.
+- The Impeccable detector flagged only the pre-existing gradient text (`.grad`, `.huge.persona`), not this change.
+- **Not checked:**
+  - Only headless Chromium was run. Real iOS Safari and Android Chrome long-press behaviour was not. Android may send `pointercancel` on a long press, which would resume the story while the finger is still down.
+  - The hidden-tab check dispatches a simulated `visibilitychange` (headless Chromium cannot background a tab), so real background throttling was not exercised.
+  - There is no unit test, because Vitest has no DOM here. The E2E covers the behaviour.
+- `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run and is not claimed green.** No billing, security or repository setting was touched. `gh-pages` was not deployed by this run.
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `fix/story-timing` after the review fix:
+- `tsc --noEmit` clean
+- 125/125 Vitest tests in 13 files (unchanged)
+- production build: 85.29 kB JS (32.28 kB gzipped), 16.56 kB CSS, 26.28 kB worker (unchanged)
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present"
+- 56/56 browser E2E checks under `/rewindary/`. The 3 new checks run on Playwright's fake clock in a separate browser context:
+  - after a pause at 4 s, the slide moves on 3 s after Play, not 7 s, and its bar resumes from 4000 ms
+  - the story waits while the tab is hidden and carries on when it is back
+  - holding a tap zone pauses and letting go stays put, while a quick tap and Enter still move on
+  - every run still made zero external requests
+
+The story was inspected at 390×844 and 1440×900 while held at 3.5 s. The bar stayed at 0.51 of its width through a 1.5 s hold and continued from there (0.56) after release. There was no text selection, and `scrollWidth` equals `clientWidth` at both widths.
