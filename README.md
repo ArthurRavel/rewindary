@@ -8,6 +8,8 @@
 
 Drop the official data exports and you get an animated, mobile-first year in review that reads across all of them (your day clock, your seasons, your busiest day, binges, rabbit holes and streaks), plus a share card that hides names and exact dates until you opt in. No upload, no account, no API key, nothing to install.
 
+**[Open Rewindary](https://arthurravel.github.io/rewindary/)** · or try it first with the built-in synthetic demo.
+
 <p align="center"><img src="docs/media/demo.gif" alt="Rewindary demo: start page, then the animated story slides, generated from synthetic data" width="320"></p>
 
 <sub>The GIF shows real screenshots of the production build, captured automatically by <code>scripts/e2e.mjs --shots</code>. All data in it is synthetic: the artists, channels and shows are invented.</sub>
