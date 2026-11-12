@@ -17,6 +17,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 ## What it does
 
 - **Four import adapters:** Spotify extended streaming history (or the 1-year account data), Apple Music play activity (Apple's privacy download, read straight from its nested `Apple_Media_Services.zip`), Google Takeout (YouTube watch and search history, Google Search activity, in JSON or HTML), and Netflix viewing activity (full data request, or the quick titles-and-dates CSV). You can drop the `.zip` files as they are; known history files are decompressed in full and photos and videos are never inflated; other `.json` and `.html` entries only have their first 32 KB looked at, and are dropped unless they open like Google activity. A Takeout in another language (French, German, Spanish… file and folder names) is read too: the importer recognises Google activity by how the file starts, not by its name.
+- **Drop anywhere.** Files and folders can be dropped anywhere on the start page, not only on the drop zone. Exports that arrive later can be dropped straight onto the review screen, where they are added to what was already read. Drops on the story and the share card are refused, so the browser never opens a dropped file in place of the app (which would lose what was read).
 - **Unzipped folders work too.** Safari on macOS unzips downloads by default, so an export often arrives as a folder (`Takeout/`, `Spotify Extended Streaming History/`). Drop the folder, or use "choose a folder" (desktop browsers; the option is hidden on phones and tablets). Inside a folder the same rules apply as inside a zip: only `.zip`, `.json`, `.csv` and `.html` files are opened, Google Photos sidecars (`IMG_0001.jpg.json`) and media are skipped by name, and a folder with no history gets one note saying which export to request.
 - **One local event model.** Every source becomes the same `LifeEvent` shape (`src/model.ts`), so the metrics run across sources:
   - total hours and the share for each source
@@ -144,6 +145,7 @@ What `verify` runs, exactly:
   - Checks that the privacy receipt reports no external requests, then surfaces the deliberate blocked `fetch` by host only after "Check again".
   - Uploads a Takeout part with no history, checks the explanation and that there is nothing to play, then adds the missing export from the same screen.
   - Uploads a Takeout whose files have French names and checks that it is read with no stray notes.
+  - Really drops files outside the drop zone: on the start page's heading (the zone lights up, the file is read), on the review screen (an overlay shows where it goes, the file is added, and a mouse move clears a drag that never ended), and on the story (refused). The browser's default handling, which would open the file in the tab, is cancelled each time.
   - Picks an unzipped Takeout folder and adds a Spotify folder from the review screen, then really drops a folder (through Chromium's DevTools protocol, since Playwright cannot drop directories) and a folder holding only photos.
   - It uses `CHROME_PATH`, or a Chromium already in the Playwright cache. It downloads nothing.
 

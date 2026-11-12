@@ -1,4 +1,3 @@
-import { useState } from 'preact/hooks';
 import { FOLDER_PICKER, fromInput, type Picked } from './folders';
 import { GUIDES } from './guides';
 import { slashBreaks } from './breaks';
@@ -6,10 +5,10 @@ import { Icon, Mark } from './Icon';
 import { Reminder } from './Reminder';
 import { SourceLink } from './SourceLink';
 
-export function Home({ onFiles, onDrop, onDemo, status, error }: {
-  onFiles: (f: Picked[]) => void; onDrop: (dt: DataTransfer) => void; onDemo: () => void; status: string | null; error: string | null;
+/** Drops are taken anywhere on the page by App; `dragging` lights up the zone while files are over it. */
+export function Home({ onFiles, dragging, onDemo, status, error }: {
+  onFiles: (f: Picked[]) => void; dragging: boolean; onDemo: () => void; status: string | null; error: string | null;
 }) {
-  const [drag, setDrag] = useState(false);
   const pick = (el: HTMLInputElement) => { const l = fromInput(el.files); el.value = ''; if (l.length) onFiles(l); };
   return (
     <main class="home">
@@ -18,12 +17,7 @@ export function Home({ onFiles, onDrop, onDemo, status, error }: {
         <h1 tabIndex={-1} data-stage-focus>Your year, rewound —<br /><span class="grad">Spotify, Apple Music, YouTube and Netflix</span> in one story.</h1>
         <p class="lead">Drop your official data exports and get an animated year-in-review plus a share card that hides names by default. Everything is computed on this device: no upload, no account, no tracking.</p>
       </header>
-      <label
-        class={`drop${drag ? ' drag' : ''}${status ? ' busy' : ''}`}
-        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); if (e.dataTransfer) onDrop(e.dataTransfer); }}
-      >
+      <label class={`drop${dragging ? ' drag' : ''}${status ? ' busy' : ''}`}>
         <input type="file" multiple accept=".zip,.json,.csv,.html,.htm" onChange={(e) => pick(e.currentTarget)} data-testid="file-input" />
         <span class="drop-icon" aria-hidden="true">{!status && <Icon name="upload" size={24} />}</span>
         <span class="drop-title">{status ?? 'Drop your export .zip files here'}</span>
