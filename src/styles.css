@@ -186,6 +186,13 @@ input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent
 .reveal { font-size: .8rem; color: var(--dim); display: inline-flex; gap: .3rem; align-items: center; cursor: pointer; }
 .confirm { font-weight: 700; }
 .share-panel .actions { margin: 0; }
+.export { justify-self: stretch; }
+/* The PNG is the main export, on its own row; copying and the other formats sit together below it at every width. */
+.actions-more { display: flex; flex-wrap: wrap; gap: .75rem; flex-basis: 100%; }
+/* Always in the page so screen readers hear it change; it takes no room while empty. */
+.export-note { margin: .75rem 0 0; font-size: .9rem; line-height: 1.45; color: var(--dim); text-wrap: pretty; }
+.export-note:empty { margin: 0; }
+.export-note.error { color: #ffb4b4; }
 .hint { margin: -.4rem 0 0; }
 .toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: var(--card); border: 1px solid var(--line); padding: .7rem 1.2rem; border-radius: 999px; z-index: 10; }
 

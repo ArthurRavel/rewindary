@@ -7,6 +7,8 @@ const PATHS = {
   upload: 'M12 15.5V4m-4.5 4.5L12 4l4.5 4.5M4.5 15v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3',
   chevron: 'M9 6l6 6-6 6',
   download: 'M12 4v11.5m-4.5-4.5L12 15.5l4.5-4.5M5 20h14',
+  copy: 'M10 9h8a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 18 20h-8a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 10 9zM15.5 9V6A1.5 1.5 0 0 0 14 4.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5',
+  check: 'M5 12.5l4.5 4.5L19 7',
 } as const;
 
 export type IconName = keyof typeof PATHS;

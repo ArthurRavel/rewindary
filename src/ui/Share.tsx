@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { CARD_FOOTER, renderCardSvg, shownLines, type CardFormat, type CardTheme, type RevealId } from '../cards';
 import { computeInsights } from '../insights';
 import type { LifeEvent, SourceId } from '../model';
 import { SOURCE_LABEL } from '../model';
 import { slashBreaks } from './breaks';
+import { canCopyImage, copyPng, exportProblem, type ExportAction } from './exports';
 import { Icon } from './Icon';
+
+type Note = { kind: 'copied' } | { kind: 'error'; text: string };
 
 async function svgToPng(svg: string, w: number, h: number): Promise<Blob> {
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
@@ -57,19 +60,33 @@ export function Share({ events, year, onBack }: { events: LifeEvent[]; year: num
   const W = 1080;
   const H = format === 'story' ? 1920 : 1080;
   const base = `rewindary-${ins.year ?? 'all-time'}-${format}`;
-  const savePng = async () => {
+  const [note, setNote] = useState<Note | null>(null);
+  // Bumped whenever the card or the review changes: a result for an older card must not be reported.
+  const card = useRef(0);
+  useEffect(() => { card.current++; setNote(null); }, [svg, reviewed]);
+  // `job` is called synchronously, so a clipboard write still starts inside the click.
+  const run = async (action: ExportAction, job: () => Promise<void>, done: Note | null = null) => {
+    const id = card.current;
     setBusy(true);
+    setNote(null);
     try {
-      download(await svgToPng(svg, W, H), `${base}.png`);
+      await job();
+      if (id === card.current && done) setNote(done);
+    } catch (e) {
+      const text = exportProblem(action, e);
+      if (id === card.current && text) setNote({ kind: 'error', text });
     } finally {
       setBusy(false);
     }
   };
+  const savePng = () => run('png', async () => download(await svgToPng(svg, W, H), `${base}.png`));
+  const canCopy = useMemo(() => canCopyImage({ isSecureContext, clipboard: navigator.clipboard, ClipboardItem: globalThis.ClipboardItem }), []);
+  const copy = () => run('copy', () => copyPng(svgToPng(svg, W, H), navigator.clipboard, ClipboardItem), { kind: 'copied' });
   const canShareFiles = useMemo(() => typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([''], 'x.png', { type: 'image/png' })] }), []);
-  const share = async () => {
+  const share = () => run('share', async () => {
     const file = new File([await svgToPng(svg, W, H)], `${base}.png`, { type: 'image/png' });
-    await navigator.share({ files: [file], title: 'My year, rewound' }).catch(() => {});
-  };
+    await navigator.share({ files: [file], title: 'My year, rewound' });
+  });
 
   return (
     <section class="share">
@@ -123,11 +140,19 @@ export function Share({ events, year, onBack }: { events: LifeEvent[]; year: num
           <input type="checkbox" checked={reviewed} onChange={() => setReviewed(!reviewed)} data-testid="confirm-review" />
           I've reviewed what this card reveals.
         </label>
-        {!reviewed && <p class="fine hint" id="export-hint">Tick the box above to enable downloads.</p>}
-        <div class="actions">
-          <button class="primary" disabled={!reviewed || busy} onClick={savePng} aria-describedby={reviewed ? undefined : 'export-hint'}><Icon name="download" size={18} />Download PNG</button>
-          <button class="ghost" disabled={!reviewed} onClick={() => download(new Blob([svg], { type: 'image/svg+xml' }), `${base}.svg`)} aria-describedby={reviewed ? undefined : 'export-hint'}>SVG</button>
-          {canShareFiles && <button class="ghost" disabled={!reviewed} onClick={share} aria-describedby={reviewed ? undefined : 'export-hint'}>Share…</button>}
+        {!reviewed && <p class="fine hint" id="export-hint">Tick the box above to enable {canCopy ? 'downloading and copying' : 'downloads'}.</p>}
+        <div class="export">
+          <div class="actions">
+            <button class="primary" disabled={!reviewed || busy} onClick={savePng} aria-describedby={reviewed ? undefined : 'export-hint'}><Icon name="download" size={18} />Download PNG</button>
+            <div class="actions-more">
+              {canCopy && <button class="ghost" disabled={!reviewed || busy} onClick={copy} aria-describedby={reviewed ? undefined : 'export-hint'} data-testid="copy-image"><Icon name={note?.kind === 'copied' ? 'check' : 'copy'} size={18} />Copy image</button>}
+              <button class="ghost" disabled={!reviewed} onClick={() => download(new Blob([svg], { type: 'image/svg+xml' }), `${base}.svg`)} aria-describedby={reviewed ? undefined : 'export-hint'}>SVG</button>
+              {canShareFiles && <button class="ghost" disabled={!reviewed || busy} onClick={share} aria-describedby={reviewed ? undefined : 'export-hint'}>Share…</button>}
+            </div>
+          </div>
+          <p class={`export-note${note?.kind === 'error' ? ' error' : ''}`} role="status" data-testid="export-note">
+            {note?.kind === 'copied' ? 'Copied. Paste it into a post or a chat.' : note?.text}
+          </p>
         </div>
       </div>
     </section>
