@@ -416,3 +416,43 @@ The card content, redaction, the review gate, the CSP and parsing are unchanged.
 - **Email:** remote `main` and `gh-pages` use the required noreply email.
 
 GitHub Actions remain unavailable because of the billing lock, so CI is not claimed green.
+
+## Day 4, cycle 3 — 2026-11-12 (scheduled cycle, ~13:00 Europe/Paris)
+
+**Counts (as supplied at the start of the cycle; not re-queried with authentication, since `gh` is unavailable here):** Rewindary 0 stars, 0 forks, no issues or PRs · Abo Killer 0 stars, 0 forks. The public API showed the same star and fork counts. `main` was clean at `354377d`.
+
+### Decision: a calendar reminder for exports still on their way
+Spotify and Netflix say their exports can take up to 30 days, and Apple up to 7. Rewindary stores nothing, so someone who requested an export on the start page had to remember the address to come back. That was the biggest drop-off left in the funnel. The start page now has a **"Requested an export?"** card under the guides:
+- **Choice:** 3 days, 1 week (the default) or 30 days. **Add to calendar** downloads an `.ics` event at 6 PM local time on that day, with a display alert. The page then confirms the saved file name and the day.
+- **What the file holds:** a fixed title and text, that time, the address of the page it was made on, and the stamp and random ID every calendar event needs. The address is read from `location` at runtime, without query or fragment, and is left out for a copy opened from disk. Nothing from the exports is in the file, and nothing is sent or stored.
+- **Floating local times,** built from date parts, so a daylight-saving change in between keeps it at 6 PM. Lines are folded at 75 octets and text values are escaped (RFC 5545).
+- **Shared helper:** the card download helper moved to `src/ui/download.ts`, so the card and the reminder use the same one.
+- **README:** the README never linked the live app in its body; a separate docs commit adds one "Open Rewindary" line above the GIF. The banner, badges, GIF and the closing AI disclosure are unchanged.
+
+### Failures and notes
+- **Phone layout, before review:** at 320 and 390 px the first segment labels ("In 3 days") wrapped onto two lines, and then "30 days" spilled past the segment. The labels are now "3 days / 1 week / 30 days" under a "Remind me in" label, laid out as an equal three-column grid under 480 px.
+- **Self-review before committing:**
+  - The test restored an unset `TZ` as the string `"undefined"`. Fixed.
+  - The UI, README and module comment said the file held "only" a title, a time and an address. They now say it also holds a creation stamp and an ID.
+- **Review against `main`:** the "Saved" note reused the date label from the last render, so a reminder saved just after midnight would have named the previous day. Fixed in `cc1df8b`.
+- **Negative control:** with the date math replaced by `7 × 24 h` arithmetic, the daylight-saving test failed. It passes with the real code.
+- The Impeccable detector flagged only the pre-existing gradient text (`.grad`, `.huge.persona`), not this change.
+- **Not checked:**
+  - Only headless Chromium was run. How Safari on iOS and macOS, Google Calendar import and Outlook treat the file (including the alert) was not tested.
+  - The README GIF and screenshots were not regenerated, so they don't show the new card.
+- `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run and is not claimed green.** No billing, security or repository setting was touched. **Nothing was pushed, merged or deployed by this run.**
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `feat/export-reminder` at `cc1df8b`:
+- `tsc --noEmit` clean
+- 125/125 Vitest tests in 13 files (11 new in `tests/reminder.test.ts`)
+- production build: 84.46 kB JS (31.96 kB gzipped), 16.47 kB CSS, 26.28 kB worker (unchanged)
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present"
+- 53/53 browser E2E checks under `/rewindary/`. The 5 new checks:
+  - the card names the reminder's day
+  - the downloaded `.ics` has the right file name, a 6 PM `DTSTART` that day in the browser's time zone, and a display alert
+  - its only address is the app's own
+  - the page confirms the saved file
+  - still zero external requests
+
+`git diff --check main...HEAD` is clean. The reminder card was inspected at 320×640 (reduced motion), 390×844 and 1440×900, before saving, after saving, and with keyboard focus. `scrollWidth` equals `clientWidth` at every width.
