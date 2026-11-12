@@ -508,3 +508,53 @@ The story was inspected at 390×844 and 1440×900 while held at 3.5 s. The bar s
 - **Live E2E:** passed all 56 checks, including the three story-timing checks, with zero external requests, empty storage and no page errors.
 
 GitHub Actions remain unavailable because of the billing lock, so CI is not claimed green.
+
+## Day 4, cycle 5 — 2026-11-12 (scheduled cycle, ~23:40 Europe/Paris)
+
+**Counts (as supplied at the start of the cycle; not re-queried by this run):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs · Abo Killer 0 stars, 0 forks. `main` was clean and in sync with `origin/main` at `71c6579`.
+
+### Decision: take dropped files anywhere, and never let the browser open them
+Reading `src/ui/App.tsx` and `src/ui/Home.tsx` showed that the only drop target in the app was the start page's dashed zone. This had two consequences:
+- **Drops outside the zone did nothing for the app.** On the start page, a file that missed the zone (on the heading or the guides) was left to the browser, whose default is to open a dropped file in the tab.
+- **The review screen had no drop target at all.** Its own notes say "Big Takeouts are split into several zips: if you have other parts, drop them too". Doing exactly that would hand the file to the browser, which can replace the app and lose everything already read. Rewindary stores nothing, so the files then have to be picked again.
+
+The fix:
+- **One page-wide handler in `App`.** It acts only on drags that carry files.
+  - **Start page:** the drop zone lights up as soon as files are over the page, and a drop anywhere is read, folders included, through the same path as before.
+  - **Review screen:** a full-page overlay says "Drop to add these files" ("Drop to replace the demo with your files" after the demo), and the drop is added to what was already read.
+  - **Story and share:** drops are refused (`dropEffect = 'none'`), so the browser opens nothing there either.
+- **The overlay can't get stuck.** It counts `dragenter` and `dragleave`. No mouse events fire during a drag, so if a browser skips the last `dragleave`, the next mouse move clears the overlay.
+- **Motion and accessibility:** the overlay fades in over 160 ms (none with reduced motion). It is `aria-hidden` and `pointer-events: none`, because dragging is a pointer-only action and status messages still go through the existing live regions.
+- **README:** one "Drop anywhere" feature line and one line describing the new E2E checks. The banner, badges, GIF and the closing AI disclosure are unchanged.
+
+Parsing, cards, redaction, the CSP and storage are untouched. Nothing new touches the network.
+
+### Failures and notes
+- **Negative control:** with the new checks run against the unchanged `main` source, the first four failed (no highlight, no read on the start page's heading, no overlay, nothing added on review). The run then stopped with a timeout, because there was no story to open.
+- **Headless Chromium did not navigate** to a file dropped through the DevTools protocol, even on `main`, so the "the tab opens the file" part of the bug could not be reproduced here. The E2E instead asserts that every drop's default handling is cancelled, which is what prevents it.
+- **A flaky check, fixed in the test:** one of the first full `verify` runs failed "the browser never opens a dropped file…", although the files had been read. The test's own listener was sometimes added before the app's (Preact adds effects after the first paint), so it read `defaultPrevented` too early. It now reads the flag after dispatch, and the section waits for the first paint before dragging. Four E2E runs and the final `verify` then passed.
+- **Visual pass, before review:** at 1440 px the review buttons showed through the overlay under its title, and the second line wrapped to an orphan. The overlay is now 95 % opaque, and the line is shorter: "Read on this device. Nothing is uploaded."
+- **Review against `main`:** the only finding was the possibly stuck overlay above (a missed `dragleave`). It was fixed and covered by a check. Also checked: a folder dropped on the zone, where the transparent file input sits, is still walked and read (the existing folder-drop checks pass). The zone's own drop handlers were removed, so only the page-wide handler takes a drop. Its cancelled default keeps the input from taking the files as well.
+- The Impeccable detector flagged only the pre-existing gradient text (`src/styles.css` lines 41 and 132), not this change.
+- **Not checked:**
+  - Only headless Chromium was run. Safari's and Firefox's drag events (including Safari's `dragleave` quirks) and folder drops in those browsers were not tested.
+  - iPad drag from the Files app was not tested.
+- `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run and is not claimed green.** No billing, security or repository setting was touched. **Nothing was pushed, merged or deployed by this run.**
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `fix/drop-anywhere`:
+- `tsc --noEmit` clean
+- 125/125 Vitest tests in 13 files (unchanged; Vitest has no DOM here, so the behaviour is covered by the E2E)
+- production build: 86.37 kB JS (32.58 kB gzipped), 16.94 kB CSS, 26.28 kB worker (unchanged)
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present"
+- 64/64 browser E2E checks under `/rewindary/`. The 8 new checks use real drops through Chromium's DevTools protocol:
+  - files dragged over the start page light up the drop zone
+  - a file dropped on the start page's heading is read in place
+  - the review screen shows the overlay while dragging
+  - the overlay goes away on the next mouse move without a `dragleave`
+  - a file dropped on the review screen is added to the one already read
+  - a drop on the story is ignored and the story stays on its slide
+  - every drop's default handling was cancelled
+  - zero external requests
+
+`git diff --check main` is clean. Drag states were inspected at 1440×900, 390×844 and 320×640 (reduced motion, where the overlay has no animation). `scrollWidth` equals `clientWidth` at every width.
