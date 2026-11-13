@@ -71,7 +71,7 @@ export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget,
       )}
       <div class="actions">
         {data.events.length > 0 && <button class="primary" onClick={onPlay} disabled={!usable} data-testid="play">Play my story</button>}
-        <label class="ghost button">Add more files<input type="file" multiple accept=".zip,.json,.csv,.html,.htm" class="sr-only" onChange={(e) => add(e.currentTarget)} data-testid="add-files" /></label>
+        <label class="ghost button">Add more files<input type="file" multiple accept=".zip,.tgz,.gz,.tar,.json,.csv,.html,.htm" class="sr-only" onChange={(e) => add(e.currentTarget)} data-testid="add-files" /></label>
         <label class="ghost button folder-only">Add a folder<input type="file" {...FOLDER_PICKER} class="sr-only" onChange={(e) => add(e.currentTarget)} data-testid="add-folder" /></label>
         <button class="ghost" onClick={onForget}>{data.events.length > 0 ? 'Forget everything' : 'Start over'}</button>
       </div>

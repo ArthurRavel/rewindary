@@ -1,4 +1,5 @@
-import { Unzip, UnzipInflate } from 'fflate';
+import { Gunzip, Unzip, UnzipInflate } from 'fflate';
+import { TarReader, type EntrySink } from './tar';
 import type { IngestResult, LifeEvent, ParseReport } from './model';
 import { isSpotifyAccount, isSpotifyExtended, parseSpotifyAccount, parseSpotifyExtended } from './parsers/spotify';
 import { looksLikeNetflixCsv, parseNetflixActivity, parseNetflixSimple } from './parsers/netflix';
@@ -32,7 +33,7 @@ export function inFolder(file: InputBlob, path: string): InputBlob {
  * after the photo in every language, and a big Takeout holds tens of thousands of them.
  */
 export const isCandidateName = (name: string) =>
-  /\.(zip|json|csv|html?)$/i.test(name) && !/\.(jpe?g|png|gif|heic|heif|webp|tiff?|bmp|dng|mp4|mov|m4v|avi|3gp|mkv|webm)\.([^/]*\.)?json$/i.test(name);
+  /\.(zip|tgz|tar|tar\.gz|json|csv|html?)$/i.test(name) && !/\.(jpe?g|png|gif|heic|heif|webp|tiff?|bmp|dng|mp4|mov|m4v|avi|3gp|mkv|webm)\.([^/]*\.)?json$/i.test(name);
 
 /** Only these entries are decompressed from archives; photos, videos etc. are never inflated. */
 export function isInterestingPath(path: string): boolean {
@@ -80,8 +81,8 @@ interface TextFile { path: string; text: string; /** Found by looking at its con
 async function unzipInteresting(blob: InputBlob, onProgress: Progress, signals: Set<Signal>, nestedOk = true): Promise<TextFile[]> {
   const files: TextFile[] = [];
   const inner: InputBlob[] = [];
-  let probes = 0;
   const pending: Promise<void>[] = [];
+  const picker = entryPicker();
   const unzip = new Unzip((entry) => {
     // Names only: they say which service the archive came from if no history is found.
     for (const s of entrySignals(entry.name)) signals.add(s);
@@ -100,31 +101,16 @@ async function unzipInteresting(blob: InputBlob, onProgress: Progress, signals: 
       entry.start();
       return;
     }
-    const named = isInterestingPath(entry.name);
-    const probe = !named && probes < MAX_PROBES && /\.(json|html?)$/i.test(entry.name) && !(entry.originalSize !== undefined && entry.originalSize > MAX_PROBE_ENTRY_BYTES);
-    if (!named && !probe) return;
-    if (probe) probes++;
-    let chunks: Uint8Array[] = [];
-    let seen = 0;
-    let undecided = probe;
-    let rejected = false;
+    const pick = picker(entry.name, entry.originalSize);
+    if (!pick) return;
+    const probe = pick === 'probe';
+    const collect = collector(`${blob.path ?? blob.name}/${entry.name}`, probe, files);
     pending.push(
       new Promise<void>((resolve, reject) => {
         entry.ondata = (err, data, final) => {
           // A peeked file that cannot be inflated is just not history; only named files may fail the import.
           if (err) return probe ? resolve() : reject(err);
-          if (!rejected) {
-            chunks.push(data);
-            seen += data.length;
-            if (undecided && (seen >= PROBE_BYTES || final)) {
-              undecided = false;
-              if (!looksLikeActivityHead(new TextDecoder().decode(concat(chunks).subarray(0, PROBE_BYTES)))) {
-                rejected = true;
-                chunks = []; // the rest of the entry is inflated and dropped without being kept
-              }
-            }
-            if (final && !rejected) files.push({ path: `${blob.path ?? blob.name}/${entry.name}`, text: new TextDecoder().decode(concat(chunks)), probed: probe });
-          }
+          collect(data, final);
           if (final) resolve();
         };
       }),
@@ -155,6 +141,79 @@ async function unzipInteresting(blob: InputBlob, onProgress: Progress, signals: 
   }
   await Promise.all(pending);
   for (const z of inner) files.push(...(await unzipInteresting(z, onProgress, signals, false)));
+  return files;
+}
+
+/**
+ * Which archive entries are read: known history names in full, other .json/.html entries peeked at
+ * (up to MAX_PROBES per archive, and none too big to peek at), everything else never.
+ */
+function entryPicker() {
+  let probes = 0;
+  return (name: string, size: number | undefined): 'named' | 'probe' | null => {
+    if (isInterestingPath(name)) return 'named';
+    if (probes >= MAX_PROBES || !/\.(json|html?)$/i.test(name) || (size !== undefined && size > MAX_PROBE_ENTRY_BYTES)) return null;
+    probes++;
+    return 'probe';
+  };
+}
+
+/** Keeps a named entry in full; keeps a peeked one only if its first 32 KB opens like Takeout activity. */
+function collector(path: string, probe: boolean, files: TextFile[]): EntrySink {
+  let chunks: Uint8Array[] = [];
+  let seen = 0;
+  let undecided = probe;
+  let rejected = false;
+  return (data, final) => {
+    if (rejected) return;
+    chunks.push(data);
+    seen += data.length;
+    if (undecided && (seen >= PROBE_BYTES || final)) {
+      undecided = false;
+      if (!looksLikeActivityHead(new TextDecoder().decode(concat(chunks).subarray(0, PROBE_BYTES)))) {
+        rejected = true;
+        chunks = []; // the rest of the entry is read and dropped without being kept
+      }
+    }
+    if (final && !rejected) files.push({ path, text: new TextDecoder().decode(concat(chunks)), probed: probe });
+  };
+}
+
+const UNREADABLE_TAR = 'This .tgz archive could not be read to the end. It may still be downloading or be cut short: download it again from Google Takeout, or pick .zip as the file type.';
+
+/**
+ * Google Takeout can also deliver ".tgz" files (its "File type" option). They are read as a stream, gunzipped
+ * on the device, with the same rules as a zip: names say which service it came from, history entries are kept,
+ * other .json/.html entries are peeked at, and everything else is decompressed in passing and never kept.
+ */
+export const isTarArchive = (name: string) => /\.(tgz|tar\.gz|tar)$/i.test(name);
+
+async function untarInteresting(blob: InputBlob, onProgress: Progress, signals: Set<Signal>): Promise<TextFile[]> {
+  const files: TextFile[] = [];
+  const pick = entryPicker();
+  const tar = new TarReader((name, size) => {
+    for (const s of entrySignals(name)) signals.add(s);
+    const how = pick(name, size);
+    // The reader hands out views into its input; copies are taken only for kept entries, by concat or slice.
+    return how && collector(`${blob.path ?? blob.name}/${name}`, how === 'probe', files);
+  });
+  const gzipped = !/\.tar$/i.test(blob.name);
+  const gunzip = gzipped ? new Gunzip((data) => tar.push(data)) : null;
+  const reader = blob.stream().getReader();
+  let read = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    read += value.length;
+    for (let o = 0; o < value.length; o += FEED_BYTES) {
+      const part = value.subarray(o, o + FEED_BYTES);
+      if (gunzip) gunzip.push(part);
+      else tar.push(part);
+    }
+    onProgress(`Unpacking ${blob.name} — ${Math.round((read / Math.max(blob.size, 1)) * 100)}%`);
+  }
+  gunzip?.push(new Uint8Array(0), true);
+  tar.end();
   return files;
 }
 
@@ -309,7 +368,7 @@ const FOLDER_READS = 32;
 /** The same rules as for zip entries: known names are read in full, other .json/.html files are peeked at, the rest is never opened. */
 async function readFolder(files: InputBlob[], onProgress: Progress): Promise<{ texts: TextFile[]; zips: InputBlob[] }> {
   const candidates = files.filter((f) => isCandidateName(f.path!));
-  const zips = candidates.filter((f) => /\.zip$/i.test(f.path!));
+  const zips = candidates.filter((f) => /\.zip$/i.test(f.path!) || isTarArchive(f.path!));
   let probes = 0;
   const toRead = candidates.filter((f) => isInterestingPath(f.path!) || (/\.(json|html?)$/i.test(f.path!) && probes++ < MAX_PROBES));
   const results: (TextFile | null)[] = new Array(toRead.length).fill(null);
@@ -369,14 +428,26 @@ export async function readBatch(blobs: InputBlob[], onProgress: Progress = () =>
     }
     return kept;
   };
-  const takeZip = async (blob: InputBlob) => {
+  const takeArchive = async (blob: InputBlob) => {
     const signals = new Set<Signal>();
-    if (take(await unzipInteresting(blob, onProgress, signals)) === 0) ignored.push({ file: blob.path ?? blob.name, hint: explainZip(blob.name, signals) });
+    let texts: TextFile[];
+    if (isTarArchive(blob.name)) {
+      // A cut-short download or a mislabelled file is explained, without sinking the other files of the drop.
+      try {
+        texts = await untarInteresting(blob, onProgress, signals);
+      } catch {
+        ignored.push({ file: blob.path ?? blob.name, hint: UNREADABLE_TAR });
+        return;
+      }
+    } else texts = await unzipInteresting(blob, onProgress, signals);
+    if (take(texts) === 0) ignored.push({ file: blob.path ?? blob.name, hint: explainZip(blob.name, signals) });
   };
   for (const unit of groupByFolder(blobs)) {
     if (unit.kind === 'file') {
       const blob = unit.blob;
-      if (/\.zip$/i.test(blob.name)) await takeZip(blob);
+      if (/\.zip$/i.test(blob.name) || isTarArchive(blob.name)) await takeArchive(blob);
+      // Anything else (a video, a .gz, a disk image…) is explained from its name and never read into memory.
+      else if (!isCandidateName(blob.name)) ignored.push({ file: blob.name, hint: explainFile(blob.name, false) });
       else take([{ path: blob.name, text: await blob.text(), probed: false }]);
       continue;
     }
@@ -385,7 +456,7 @@ export async function readBatch(blobs: InputBlob[], onProgress: Progress = () =>
     for (const f of unit.files) for (const s of entrySignals(f.path!)) signals.add(s);
     const { texts, zips } = await readFolder(unit.files, onProgress);
     // A zip inside the folder gets its own note when it holds nothing, so it counts as explained.
-    for (const z of zips) await takeZip(z);
+    for (const z of zips) await takeArchive(z);
     if (take(texts) + zips.length === 0) ignored.push({ file: `${unit.name}/`, hint: explainFolder(signals) });
   }
   return { parsed, ignored };

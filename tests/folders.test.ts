@@ -105,7 +105,7 @@ describe('unzipped export folders', () => {
     expect(r.reports.map((x) => x.file)).toEqual(['ViewingActivity.csv']);
     expect(r.ignored.map((f) => f.file)).toEqual(['Takeout/YouTube and YouTube Music/history/watch-history.json', 'notes.txt']);
     expect(r.ignored[0].hint).toMatch(/looks like a history file/);
-    expect(r.ignored[1].hint).toMatch(/Only \.zip, \.json, \.csv and \.html/);
+    expect(r.ignored[1].hint).toMatch(/Only \.zip, \.tgz, \.json, \.csv and \.html/);
   });
 
   it('never opens Google Photos sidecars, whatever the language', async () => {

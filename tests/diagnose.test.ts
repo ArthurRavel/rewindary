@@ -67,7 +67,7 @@ describe('explaining loose files', () => {
   it('names the service for known non-history files and rejects other types', () => {
     expect(explainFile('YourLibrary.json', false)).toMatch(/Spotify export has no listening history/);
     expect(explainFile('notes.json', false)).toMatch(/Not a Spotify, Apple Music, YouTube, Google Search or Netflix history file/);
-    expect(explainFile('holiday.mp4', false)).toBe('Only .zip, .json, .csv and .html exports can be read.');
+    expect(explainFile('holiday.mp4', false)).toBe('Only .zip, .tgz, .json, .csv and .html exports can be read.');
   });
 
   it('reads only names and returns plain hints with no file content, paths or URLs', () => {

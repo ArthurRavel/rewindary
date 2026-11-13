@@ -5,7 +5,7 @@
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { zipSync } from 'fflate';
+import { gzipSync, zipSync } from 'fflate';
 import { launch } from './browser.mjs';
 import { serve } from './serve.mjs';
 
@@ -290,6 +290,40 @@ const frReports = await page.getByTestId('reports').innerText();
 check(/Takeout activity \(JSON\)/.test(frReports) && (await page.getByTestId('ignored').count()) === 0, 'a Takeout with French file names is read by content, with no note about the photo sidecar');
 check(external.length === 0, `still no request left ${app} after the French Takeout`);
 
+console.log('Takeout as .tgz');
+// Google Takeout's "File type" can be .tgz instead of .zip. A minimal ustar archive (one header block per file).
+const ustar = (files) => {
+  const blocks = [];
+  for (const [name, data] of Object.entries(files)) {
+    const h = new Uint8Array(512);
+    const put = (s, at) => h.set(new TextEncoder().encode(s), at);
+    put(name, 0); put('0000644\0', 100); put(data.length.toString(8).padStart(11, '0') + '\0', 124); put('00000000000\0', 136);
+    h[156] = 48; put('ustar\0', 257); put('00', 263);
+    let sum = 0;
+    for (let i = 0; i < 512; i++) sum += i >= 148 && i < 156 ? 32 : h[i];
+    put(sum.toString(8).padStart(6, '0') + '\0 ', 148);
+    const body = new Uint8Array(Math.ceil(data.length / 512) * 512);
+    body.set(data);
+    blocks.push(h, body);
+  }
+  blocks.push(new Uint8Array(1024));
+  return Buffer.concat(blocks);
+};
+writeFileSync(join(dir, 'takeout-20261110T101500Z-001.tgz'), gzipSync(ustar({
+  'Takeout/YouTube and YouTube Music/history/watch-history.json': fx('google/watch-history.json'),
+  'Takeout/Google Photos/IMG_0001.jpg': new Uint8Array(2048).fill(7),
+})));
+await page.goto(app);
+await page.getByTestId('file-input').setInputFiles(join(dir, 'takeout-20261110T101500Z-001.tgz'));
+await page.getByTestId('play').waitFor();
+const tgzReports = await page.getByTestId('reports').innerText();
+check(/Takeout activity \(JSON\)/.test(tgzReports) && /takeout-20261110T101500Z-001\.tgz\/Takeout\/YouTube and YouTube Music\/history\/watch-history\.json/.test(tgzReports) && (await page.getByTestId('ignored').count()) === 0, 'a Takeout delivered as .tgz is unpacked in the browser and its watch history read');
+writeFileSync(join(dir, 'holiday.mp4'), new Uint8Array(4096));
+await page.getByTestId('add-files').setInputFiles(join(dir, 'holiday.mp4'));
+await page.getByTestId('ignored').filter({ hasText: 'holiday.mp4' }).waitFor();
+check(/Only \.zip, \.tgz, \.json, \.csv and \.html exports can be read/.test(await page.getByTestId('ignored').filter({ hasText: 'holiday.mp4' }).innerText()) && /Takeout activity \(JSON\)/.test(await page.getByTestId('reports').innerText()), 'an unsupported file added later is explained by name, and the .tgz history stays');
+check(external.length === 0, `still no request left ${app} after the .tgz Takeout`);
+
 console.log('Apple Music');
 // Apple's privacy download is a zip holding Apple_Media_Services.zip, which holds the play activity CSV.
 writeFileSync(join(dir, 'Apple Media Services information.zip'), zipSync({
@@ -348,7 +382,7 @@ check(/Takeout\/YouTube and YouTube Music\/history\/watch-history\.html/.test(aw
 put('folders/Only photos/IMG_0001.jpg', 'x');
 await page.goto(app);
 await dropFolder(join(dir, 'folders/Only photos'));
-await page.getByText('No .zip, .json, .csv or .html files in this folder').waitFor();
+await page.getByText('No .zip, .tgz, .json, .csv or .html files in this folder').waitFor();
 check(await page.getByTestId('demo').isVisible(), 'a dropped folder with nothing to read says so and stays on the start page');
 check(external.length === 0, `still no request left ${app} after the folder uploads`);
 

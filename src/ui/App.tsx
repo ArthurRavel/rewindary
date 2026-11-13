@@ -94,7 +94,7 @@ export function App() {
         if (id !== walk.current) return;
         if (files.length) return onFiles(files);
         setStatus(null);
-        setError('No .zip, .json, .csv or .html files in this folder, so there is nothing to read.');
+        setError('No .zip, .tgz, .json, .csv or .html files in this folder, so there is nothing to read.');
       },
       (e) => {
         if (id !== walk.current) return;

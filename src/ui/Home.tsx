@@ -18,7 +18,7 @@ export function Home({ onFiles, dragging, onDemo, status, error }: {
         <p class="lead">Drop your official data exports and get an animated year-in-review plus a share card that hides names by default. Everything is computed on this device: no upload, no account, no tracking.</p>
       </header>
       <label class={`drop${dragging ? ' drag' : ''}${status ? ' busy' : ''}`}>
-        <input type="file" multiple accept=".zip,.json,.csv,.html,.htm" onChange={(e) => pick(e.currentTarget)} data-testid="file-input" />
+        <input type="file" multiple accept=".zip,.tgz,.gz,.tar,.json,.csv,.html,.htm" onChange={(e) => pick(e.currentTarget)} data-testid="file-input" />
         <span class="drop-icon" aria-hidden="true">{!status && <Icon name="upload" size={24} />}</span>
         <span class="drop-title">{status ?? 'Drop your export .zip files here'}</span>
         <span class="drop-sub">{status ? 'Working locally…' : 'or click to choose — Spotify, Apple, Google Takeout and Netflix zips, or the JSON/CSV/HTML files inside'}</span>
