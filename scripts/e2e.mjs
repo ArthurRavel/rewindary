@@ -64,11 +64,13 @@ check(/No requests to other sites recorded/.test(await receipt.innerText()) && (
 await page.getByTestId('play').click();
 const slideIds = [];
 let changeText = '';
+let spotifyText = { list: '', podcast: '' };
 for (let i = 0; i < 20; i++) {
   const id = await page.locator('.story').getAttribute('data-slide');
   slideIds.push(id);
   await page.waitForTimeout(1100);
   await snap(`slide-${id}`);
+  if (id === 'spotify') spotifyText = { list: await page.locator('.slide ol.top').innerText(), podcast: await page.getByTestId('top-podcast').innerText() };
   if (id === 'change') changeText = `${await page.getByTestId('change-total').innerText()}\n${await page.locator('.slide').innerText()}`;
   if (id === 'end') {
     check(await linkOk(page.locator('.slide.end').getByTestId('source-link')), 'the end of the story links to the source code in a new tab');
@@ -77,6 +79,7 @@ for (let i = 0; i < 20; i++) {
   await page.locator('.tap.next').click();
 }
 check(['intro', 'total', 'change', 'clock', 'seasons', 'busiest', 'spotify', 'applemusic', 'youtube', 'netflix', 'rhythm', 'persona', 'end'].every((s) => slideIds.includes(s)), `story slides: ${slideIds.join(', ')}`);
+check(/^Top podcast or audiobook: (Small Questions, Big Rooms|The Patient Engineer|Notes from the Night Bus), \d+ h( \d+ min)?\.$/.test(spotifyText.podcast) && /Velvet Static/.test(spotifyText.list) && !/Small Questions|Patient Engineer|Night Bus/.test(spotifyText.list), `the Spotify slide ranks artists without podcasts and names the top podcast or audiobook apart: ${JSON.stringify(spotifyText.podcast)}`);
 check(/Compared with 2024/.test(changeText) && /^\+\d+%\n/.test(changeText) && /from Jan 1 to Dec \d+ in both years/.test(changeText) && (changeText.match(/ → /g) ?? []).length === 4, `year-over-year slide compares 2025 with the same dates of 2024, for each of the 4 sources: ${JSON.stringify(changeText.split('\n').slice(0, 3))}`);
 await page.getByText('Create share card').click();
 await page.setViewportSize({ width: 1280, height: 860 });
