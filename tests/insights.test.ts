@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { cardLines } from '../src/cards';
 import { change } from '../src/format';
 import { availableYears, compareYears, computeInsights, defaultYear, longestSession, overlap, persona } from '../src/insights';
 import type { LifeEvent } from '../src/model';
@@ -155,5 +156,28 @@ describe('synthetic demo dataset (through the real parsers)', () => {
   });
   it('is deterministic', () => {
     expect(computeInsights(loadDemo(2025).events, 2025).totalMs).toBe(ins.totalMs);
+  });
+});
+
+describe('podcasts are ranked apart from music', () => {
+  // A daily hour-long show outweighs an artist played far more often, by time.
+  const days = Array.from({ length: 20 }, (_, d) => at('2025-03-01T07:00:00') + d * 86_400_000);
+  const events: LifeEvent[] = [
+    ...days.map((t) => ev({ source: 'spotify', kind: 'podcast', t, ms: H, title: 'Episode', group: 'Long Show' })),
+    ...days.flatMap((t) => [0, 1, 2].map((k) => ev({ source: 'spotify', t: t + 2 * H + k * 200_000, ms: 180_000, title: 'Song', group: 'Real Artist' }))),
+    ev({ source: 'spotify', kind: 'podcast', t: at('2025-04-01T07:00:00'), ms: 10_000, title: 'Trailer', group: 'Short Show' }),
+  ];
+  const sp = computeInsights(events, 2025).sources[0];
+
+  it('keeps shows and episodes out of the artist and song rankings', () => {
+    expect(sp.top.map((t) => t.name)).toEqual(['Real Artist']);
+    expect(sp.topTitles.map((t) => t.name)).toEqual(['Song — Real Artist']);
+    expect(sp.podcasts).toEqual([{ name: 'Long Show', ms: 20 * H, count: 20 }]); // the 10 s trailer is not a listen
+    expect(sp.ms).toBe(20 * H + 60 * 180_000 + 10_000); // podcast time still counts as Spotify time
+  });
+  it('puts the real artist on the card, and no card line for a podcast-only year', () => {
+    const line = (evs: LifeEvent[]) => cardLines(computeInsights(evs, 2025), new Set(['topArtist'])).find((l) => l.id === 'topArtist');
+    expect(line(events)?.value).toBe('Real Artist · 60 plays');
+    expect(line(events.filter((e) => e.kind === 'podcast'))).toBeUndefined();
   });
 });

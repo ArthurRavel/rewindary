@@ -168,8 +168,11 @@ export function buildSlides(ins: Insights): Slide[] {
   let runTold = false;
   for (const m of [sp, am]) {
     if (!m || m.ms <= 0) continue;
-    // Some Apple Music exports have no artist names: rank the songs instead.
+    // Some Apple Music exports have no artist names: rank the songs instead. Podcasts are never
+    // ranked with the music; they get their own line, or the list when nothing else was played.
     const byArtist = m.top.length > 0;
+    const ranked = byArtist ? m.top : m.topTitles;
+    const pod = m.podcasts[0];
     const showRun: boolean = !runTold && ins.marathon !== null;
     runTold ||= showRun;
     slides.push({
@@ -177,8 +180,11 @@ export function buildSlides(ins: Insights): Slide[] {
       body: (<>
         <p class="kicker rise">{SOURCE_LABEL[m.source]}</p>
         <h2 class="big rise" style="animation-delay:150ms">{hours(m.ms)} hours of sound</h2>
-        <Top items={(byArtist ? m.top : m.topTitles).map((t) => ({ name: t.name, value: num(t.count) }))} unit=" plays" />
+        {ranked.length > 0
+          ? <Top items={ranked.map((t) => ({ name: t.name, value: num(t.count) }))} unit=" plays" />
+          : <Top items={m.podcasts.map((t) => ({ name: t.name, value: duration(t.ms) }))} />}
         {byArtist && m.topTitles[0] && <p class="note rise" style="animation-delay:900ms">On repeat: <b>{m.topTitles[0].name}</b> ({num(m.topTitles[0].count)}×)</p>}
+        {ranked.length > 0 && pod && <p class="note rise" data-testid="top-podcast" style="animation-delay:950ms">Top podcast or audiobook: <b>{pod.name || 'Unknown'}</b>, {duration(pod.ms)}.</p>}
         {showRun && <p class="note rise" style="animation-delay:1000ms">Longest listening run: {duration(ins.marathon!.ms)} without a break.</p>}
       </>),
     });

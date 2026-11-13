@@ -26,6 +26,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
   - how the year compares with the one before, over the same dates and per source (a source counts only when its history reaches back to that January, and both years stop where the stalest export ends, so an unfinished year is never set against a full one)
   - your most plugged-in day, broken down by source
   - your longest daily streak and longest offline break
+  - your top artists and songs per music service, with podcasts and audiobooks ranked apart (by listening time), so a daily hour-long show never shows up as your #1 artist, in the story or on the card
   - your biggest Netflix binge, deepest YouTube rabbit hole and longest music run (Spotify and Apple Music together)
   - "second screen" time, when music played while a video or show was on
   - a persona such as *Midnight Soundtracker* or *Weekend Binge Scholar*
@@ -118,10 +119,10 @@ pnpm og-image         # re-capture public/og.jpg, the link-preview image, from t
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 125 Vitest tests in 13 files, run in UTC.
+- `node scripts/run-tests.mjs`: 127 Vitest tests in 13 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
-  - Insights: streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years across all four services.
+  - Insights: podcasts ranked apart from artists and songs (and kept off the card's #1 artist), streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years across all four services.
   - Redaction: all card formats and themes, review lines equal card lines, XML escaping, the footer (once per card, the only address on it, and it fits).
   - Privacy receipt: same-origin vs external hosts, blocked attempts by host only, stored items.
   - Localized Takeouts: history under French, German and Spanish file names, the content check that decides what is kept (and that photo sidecars, bookmarks and Maps activity are not), thousands of tiny entries in one archive, stored (uncompressed) entries, and an entry with a compression method it cannot read.
@@ -135,7 +136,7 @@ What `verify` runs, exactly:
 - `vite build`: static output in `dist/` with a relative base, ready for GitHub Pages. About 85 KB of JS (≈32 KB gzipped) plus a 26 KB parser worker. Runtime dependencies are `preact` and `fflate`.
 - `node scripts/check-dist.mjs`: no remote URLs or network APIs in the bundle (the exact source-code link is the one allowed URL besides the demo's synthetic data and the SVG namespace), and a strict CSP is present. It also checks that the link-preview tags point at the app's own address (the only other absolute URLs allowed in `index.html`) and that `og.jpg` ships as a 1200×630 JPEG under 300 KB.
 - `node scripts/e2e.mjs`: drives the built site in headless Chromium, served under `/rewindary/` exactly like the GitHub Pages project site (any request outside that path fails the run). `E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs` runs the same checks against the deployed copy.
-  - Runs the demo through every slide (including Apple Music and the four-source year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names. Copies the card and reads a 1080×1920 PNG back from the clipboard (copy is gated by the same review), and checks that the "Copied" note clears when the card changes. Checks the source-code link on the start page and the end slide (new tab, no referrer or opener), the footer line in the review panel, and that the exported card carries the app address once and no other link.
+  - Runs the demo through every slide (the Spotify slide ranks artists with no podcast among them and names the top podcast apart; including Apple Music and the four-source year-over-year comparison), then tests the review gate and the PNG (1080×1920) and SVG exports, with and without revealed names. Copies the card and reads a 1080×1920 PNG back from the clipboard (copy is gated by the same review), and checks that the "Copied" note clears when the card changes. Checks the source-code link on the start page and the end slide (new tab, no referrer or opener), the footer line in the review panel, and that the exported card carries the app address once and no other link.
   - Picks "3 days" in the export reminder and downloads it: the file name and `DTSTART` are that day at 6 PM in the browser's time zone, it has an alert, its only address is the app's own, and the page confirms the saved file.
   - Uploads zipped and plain fixtures for Spotify, Google and Netflix, and Apple's nested privacy zip (play activity read, its own story slide, the #1 artist hidden on the card review).
   - Checks the link-preview tags, that `og.jpg` is served next to the app, and that the page never loads it.

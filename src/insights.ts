@@ -10,8 +10,10 @@ export interface SourceSummary {
   /** Share of this source's time that is estimated (0–1). */
   estShare: number;
   searches: number;
-  top: Ranked[]; // artists / channels / shows
-  topTitles: Ranked[]; // tracks / videos / films
+  top: Ranked[]; // artists / channels / shows (never podcasts)
+  topTitles: Ranked[]; // tracks / videos / films (never podcast episodes)
+  /** Podcast shows and audiobooks, by listening time. Kept apart so a long show never ranks as an artist. */
+  podcasts: Ranked[];
 }
 
 export interface Session { count: number; ms: number; start: number; group: string }
@@ -225,7 +227,7 @@ export function computeInsights(all: LifeEvent[], year: number | null): Insights
   const hourly = perSource(24);
   const weekday = perSource(7);
   const monthly = perSource(12);
-  const tops = new Map<SourceId, { groups: Map<string, Ranked>; titles: Map<string, Ranked>; ms: number; est: number; n: number; searches: number }>();
+  const tops = new Map<SourceId, { groups: Map<string, Ranked>; titles: Map<string, Ranked>; shows: Map<string, Ranked>; ms: number; est: number; n: number; searches: number }>();
   const days = new Map<number, { ms: number; bySource: Partial<Record<SourceId, number>> }>();
   let totalMs = 0;
   let estMs = 0;
@@ -236,7 +238,7 @@ export function computeInsights(all: LifeEvent[], year: number | null): Insights
 
   for (const e of events) {
     let s = tops.get(e.source);
-    if (!s) tops.set(e.source, (s = { groups: new Map(), titles: new Map(), ms: 0, est: 0, n: 0, searches: 0 }));
+    if (!s) tops.set(e.source, (s = { groups: new Map(), titles: new Map(), shows: new Map(), ms: 0, est: 0, n: 0, searches: 0 }));
     s.n++;
     const d = new Date(e.t);
     const dn = dayNumber(e.t);
@@ -255,7 +257,10 @@ export function computeInsights(all: LifeEvent[], year: number | null): Insights
       estMs += e.ms;
     }
     // Spotify convention (used for Apple Music too): a play counts as a "stream" after 30 s.
-    if (!MUSIC_SOURCES.has(e.source) || e.ms >= 30_000) {
+    if (e.kind === 'podcast') {
+      // An hour-long episode would outweigh dozens of songs, so shows are ranked on their own.
+      if (e.ms >= 30_000) bump(s.shows, e.group, e.ms);
+    } else if (!MUSIC_SOURCES.has(e.source) || e.ms >= 30_000) {
       bump(s.groups, e.group, e.ms);
       if (e.kind !== 'episode') bump(s.titles, e.title && e.group && e.kind !== 'film' ? `${e.title} — ${e.group}` : e.title, e.ms);
     }
@@ -275,7 +280,7 @@ export function computeInsights(all: LifeEvent[], year: number | null): Insights
   const sources: SourceSummary[] = SOURCE_ORDER.filter((k) => tops.has(k)).map((k) => {
     const s = tops.get(k)!;
     const by = k === 'youtube' ? 'count' : 'ms';
-    return { source: k, events: s.n, ms: s.ms, estShare: s.ms ? s.est / s.ms : 0, searches: s.searches, top: rank(s.groups, 5, by), topTitles: rank(s.titles, 5, MUSIC_SOURCES.has(k) ? 'count' : by) };
+    return { source: k, events: s.n, ms: s.ms, estShare: s.ms ? s.est / s.ms : 0, searches: s.searches, top: rank(s.groups, 5, by), topTitles: rank(s.titles, 5, MUSIC_SOURCES.has(k) ? 'count' : by), podcasts: rank(s.shows, 3, 'ms') };
   });
 
   const hourTotals = new Array(24).fill(0).map((_, h) => SOURCE_ORDER.reduce((n, k) => n + hourly[k][h], 0));
