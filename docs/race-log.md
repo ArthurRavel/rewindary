@@ -567,3 +567,34 @@ Parsing, cards, redaction, the CSP and storage are untouched. Nothing new touche
 - **Live E2E:** passed all 64 checks, including the 8 drop-anywhere checks, with zero external requests, empty storage and no page errors.
 
 GitHub Actions remain unavailable, so CI is not claimed green.
+
+## Day 5 — 2026-11-13 (scheduled cycle, ~04:10 Europe/Paris)
+
+**Counts (as supplied at the start of the cycle; not re-queried by this run):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs. `main` was clean at `1642356`.
+
+### Decision: never rank a podcast as an artist
+`computeInsights` ranked every Spotify "group" by listening time, so podcast shows and audiobooks were ranked together with artists. One hour-long episode outweighs about twenty songs. A listener with a daily show could see it as their #1 "artist" on the Spotify slide, with episodes counted as "plays", and on the share card's "#1 artist" line. A resumed episode could also take "On repeat". The synthetic demo hid this because its artists dominate, which is why no earlier check caught it.
+
+The fix:
+- **`src/insights.ts`:** podcast-kind events (episodes and audiobook chapters, 30 s or more) go into their own `podcasts` ranking by time. `top` and `topTitles` now hold music only. Podcast time still counts toward Spotify's hours, the day clock and everything else.
+- **`src/ui/Story.tsx`:** the Spotify slide adds "Top podcast or audiobook: <show>, <time>." under the artists. If a Spotify year has only podcasts, they become the list, ranked by time.
+- **Share card:** no code change. Its #1 artist comes from `top`, so it is now always an artist. A podcast-only year gets no artist line, rather than a show labelled as an artist. Card redaction is unchanged; the podcast name is never on a card.
+
+### Failures and notes
+- **Negative control:** the 2 new unit tests failed on the unchanged `src/insights.ts` and `src/ui/Story.tsx` (the podcast show ranked #1, and the card's #1 artist was the show). Both pass with the fix.
+- **A flaky timeout, not related to this change:** the first full `verify` failed one existing test ("thousands of tiny photo sidecars"), which took 8.6 s against Vitest's 5 s limit while the machine was loaded. It passed alone and in the next two full runs. The ingest code was not touched.
+- **Review against `main`:** one finding. Spotify audiobooks share the `podcast` kind, so the first label, "Top podcast", would have mislabelled an audiobook. It now reads "Top podcast or audiobook", and the E2E check was updated.
+- **Not checked:**
+  - The podcast-only list on the Spotify slide has no automated check (Vitest has no DOM here, and the demo always has music).
+  - No real (non-synthetic) export was used.
+- `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run and is not claimed green.** No billing, security or repository setting was touched. **Nothing was pushed, merged or deployed by this run.**
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `fix/podcasts-not-artists` after the review fix:
+- `tsc --noEmit` clean
+- 127/127 Vitest tests in 13 files (+2: the artist and song rankings exclude shows and episodes, and so does the card's #1 artist)
+- production build: 86.76 kB JS (32.70 kB gzipped), 16.94 kB CSS, 26.28 kB worker
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present"
+- 65/65 browser E2E checks under `/rewindary/`. The new one is on the demo's Spotify slide: "Top podcast or audiobook: The Patient Engineer, 20 h 48 min.", with Velvet Static leading the artist list and no podcast in it.
+
+`git diff --check main` is clean. The demo's Spotify slide was inspected at 320×640, 390×844 and 1440×900: the note sits below the list and fits inside the viewport (its bottom edge at 494, 597 and 631 px), and `scrollWidth` equals `clientWidth` at every width.
