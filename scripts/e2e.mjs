@@ -412,6 +412,29 @@ await page.getByTestId('play').waitFor();
 check((await page.getByTestId('ignored').count()) === 1 && /Netflix viewing activity/.test(await page.getByTestId('reports').innerText()), 'the missing export can be added from the same screen, keeping the note');
 check(external.length === 0, `still no request left ${app} after the unrecognised upload`);
 
+console.log('Exports added later');
+// Exports arrive days apart, so the second one is often added from the review screen: it must be merged by the same rules as a single drop.
+await page.goto(app);
+await page.getByTestId('file-input').setInputFiles(spotifyJson);
+await page.getByTestId('play').waitFor();
+const spotifyCount = async () => (await page.locator('.controls label.check', { hasText: 'Spotify' }).innerText()).replace(/\s+/g, ' ');
+const reportsHave = (re) => page.waitForFunction((src) => new RegExp(src).test(document.querySelector('[data-testid=reports]')?.textContent ?? ''), re.source, { timeout: 10_000 }).catch(() => {});
+const spotifyOnce = await spotifyCount();
+await page.getByTestId('add-files').setInputFiles(join(ROOT, 'tests/fixtures/spotify/StreamingHistory_music_0.json'));
+await reportsHave(/Spotify account/);
+check(/Ignored because the extended streaming history covers the same plays/.test(await page.getByTestId('reports').innerText()) && (await spotifyCount()) === spotifyOnce,
+  `the 1-year Spotify data added after the extended history is not counted twice (Spotify: ${spotifyOnce} → ${await spotifyCount()})`);
+await page.getByTestId('add-files').setInputFiles(spotifyJson);
+await reportsHave(/duplicate entries merged/);
+check(/duplicate entries merged/.test(await page.getByTestId('reports').innerText()) && (await spotifyCount()) === spotifyOnce, 'an export added twice is merged and reported, not counted twice');
+await page.getByRole('button', { name: 'Forget everything' }).click();
+await page.getByTestId('file-input').waitFor({ state: 'attached' });
+await page.getByTestId('file-input').setInputFiles(join(ROOT, 'tests/fixtures/spotify/StreamingHistory_music_0.json'));
+await page.getByTestId('play').waitFor();
+const fresh = await page.getByTestId('reports').innerText();
+check(/Spotify account/.test(fresh) && !/Spotify extended|Ignored because/.test(fresh), 'after "Forget everything", files are read afresh, without the forgotten ones');
+check(external.length === 0, `still no request left ${app} after adding exports later`);
+
 await browser.close();
 local?.server.close();
 if (failures) {

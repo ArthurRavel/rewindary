@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
-import { ingestFiles, isInterestingPath } from '../src/ingest';
+import { combineBatches, ingestFiles, isInterestingPath, readBatch } from '../src/ingest';
 import { fixture, fixtureBytes } from './helpers';
 
 const file = (name: string, data: Uint8Array | string) => new File([data as BlobPart], name);
@@ -54,4 +54,50 @@ it('isInterestingPath filters archive entries', () => {
   expect(isInterestingPath('netflix-report/CONTENT_INTERACTION/ViewingActivity.csv')).toBe(true);
   expect(isInterestingPath('Takeout/YouTube/videos/clip.mp4')).toBe(false);
   expect(isInterestingPath('my_spotify_data/Userdata.json')).toBe(false);
+});
+
+describe('exports added later', () => {
+  const extended = () => file('Streaming_History_Audio_2024-2025_0.json', fixture('spotify/Streaming_History_Audio_2024-2025_0.json'));
+  const account = () => file('StreamingHistory_music_0.json', fixture('spotify/StreamingHistory_music_0.json'));
+  /** Like the app: each drop is merged as soon as it is read, before the next one arrives. */
+  const later = async (...drops: File[][]) => {
+    const batches = [];
+    let r = combineBatches([]);
+    for (const d of drops) {
+      batches.push(await readBatch(d));
+      r = combineBatches(batches);
+    }
+    return r;
+  };
+
+  it('ignores the 1-year Spotify account data whichever export arrives first', async () => {
+    const together = await ingestFiles([extended(), account()]);
+    for (const r of [await later([account()], [extended()]), await later([extended()], [account()])]) {
+      expect(r.events).toEqual(together.events);
+      const acc = r.reports.find((x) => x.format.startsWith('Spotify account'));
+      expect(acc?.events).toBe(0);
+      expect(acc?.warnings).toContain('Ignored because the extended streaming history covers the same plays.');
+    }
+  });
+
+  it('merges an export added twice and says so', async () => {
+    const once = await ingestFiles([extended()]);
+    const r = await later([extended()], [extended()]);
+    expect(r.events).toEqual(once.events);
+    expect(r.reports).toHaveLength(2);
+    expect(r.reports[1].events).toBe(0);
+    expect(r.reports[1].warnings).toContain(`${once.events.length} duplicate entries merged.`);
+  });
+
+  it('estimates YouTube durations across batches, and matches a Takeout added twice', async () => {
+    const rows = JSON.parse(fixture('google/watch-history.json')) as unknown[];
+    const half = Math.ceil(rows.length / 2);
+    const part = (r: unknown[]) => file('watch-history.json', JSON.stringify(r));
+    const whole = await ingestFiles([part(rows)]);
+    const split = await later([part(rows.slice(0, half))], [part(rows.slice(half))]);
+    expect(whole.events.filter((e) => e.source === 'youtube').length).toBeGreaterThan(2);
+    expect(split.events).toEqual(whole.events);
+    const twice = await later([part(rows)], [part(rows)]);
+    expect(twice.events).toEqual(whole.events);
+  });
 });
