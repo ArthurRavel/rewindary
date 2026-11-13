@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { computeInsights, defaultYear } from '../insights';
+import { combineBatches, type IngestBatch } from '../ingest';
 import type { IngestResult } from '../model';
 import { num } from '../format';
 import { loadDemo } from '../pipeline';
@@ -12,13 +13,6 @@ import { Story } from './Story';
 
 type Stage = 'home' | 'review' | 'story' | 'share';
 
-function merge(a: IngestResult | null, b: IngestResult): IngestResult {
-  if (!a) return b;
-  const seen = new Set(a.events.map((e) => `${e.source}|${e.kind}|${e.t}|${e.group}|${e.title}`));
-  const events = [...a.events, ...b.events.filter((e) => !seen.has(`${e.source}|${e.kind}|${e.t}|${e.group}|${e.title}`))].sort((x, y) => x.t - y.t);
-  return { events, reports: [...a.reports, ...b.reports], ignored: [...a.ignored, ...b.ignored], profiles: [...new Set([...a.profiles, ...b.profiles])].sort() };
-}
-
 export function App() {
   const [stage, setStage] = useState<Stage>('home');
   const [data, setData] = useState<IngestResult | null>(null);
@@ -27,6 +21,9 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({ year: null, off: new Set(), profiles: new Set() });
   const worker = useRef<Worker | null>(null);
+  // Every batch of files read so far. Files added later are merged with them by the ingest rules (de-duplication,
+  // extended Spotify history over the 1-year account data, YouTube durations across the whole history).
+  const batches = useRef<IngestBatch[]>([]);
   const walk = useRef(0);
   const firstRender = useRef(true);
 
@@ -37,13 +34,26 @@ export function App() {
     document.querySelector<HTMLElement>('[data-stage-focus]')?.focus({ preventScroll: true });
   }, [stage]);
 
-  const accept = (r: IngestResult, isDemo: boolean) => {
-    const merged = isDemo ? r : merge(demo ? null : data, r);
+  const show = (merged: IngestResult, isDemo: boolean) => {
     setData(merged);
     setDemo(isDemo);
     setFilters({ year: defaultYear(merged.events), off: new Set(), profiles: new Set(merged.profiles) });
     setStage('review');
     scrollTo(0, 0);
+  };
+  // The demo and "Forget everything" empty the list, so files read next replace the demo or start afresh.
+  const showDemo = () => { batches.current = []; show(loadDemo(), true); };
+  const addBatch = (b: IngestBatch) => {
+    batches.current = [...batches.current, b];
+    show(combineBatches(batches.current), false);
+  };
+  const forget = () => {
+    // A read still running must not bring the forgotten files back when it finishes.
+    walk.current++;
+    worker.current?.terminate();
+    worker.current = null;
+    batches.current = [];
+    setData(null); setDemo(false); setStatus(null); setError(null); setStage('home'); scrollTo(0, 0);
   };
 
   const onFiles = (files: Picked[]) => {
@@ -59,7 +69,7 @@ export function App() {
       else {
         w.terminate();
         setStatus(null);
-        if (m.type === 'done') accept(m.result, false);
+        if (m.type === 'done') addBatch(m.batch);
         else setError(`Could not read these files: ${m.msg}`);
       }
     };
@@ -150,7 +160,7 @@ export function App() {
   const ins = useMemo(() => (stage === 'story' ? computeInsights(filtered, filters.year) : null), [filtered, filters.year, stage]);
 
   if (stage === 'home' || !data) {
-    return <Home onFiles={onFiles} dragging={dragging} onDemo={() => accept(loadDemo(), true)} status={status} error={error} />;
+    return <Home onFiles={onFiles} dragging={dragging} onDemo={showDemo} status={status} error={error} />;
   }
   if (stage === 'review') {
     return (<>
@@ -166,7 +176,7 @@ export function App() {
       {status && <p class="toast" role="status">{status}</p>}
       {error && <p class="toast error" role="alert">{error}</p>}
       <Review data={data} demo={demo} filters={filters} setFilters={setFilters} onPlay={() => setStage('story')} onAddMore={onFiles}
-        onForget={() => { setData(null); setDemo(false); setError(null); setStage('home'); scrollTo(0, 0); }} />
+        onForget={forget} />
     </>);
   }
   if (stage === 'story' && ins) return <Story ins={ins} onShare={() => setStage('share')} onExit={() => setStage('review')} />;

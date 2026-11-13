@@ -607,3 +607,51 @@ The fix:
 - **Counts (freshly verified on GitHub):** Rewindary 0 stars, 0 forks, 0 issues, 0 PRs · Abo Killer 0 stars, 0 forks, 0 issues, 0 PRs.
 
 GitHub Actions remain unavailable, so CI is not claimed green.
+
+## Day 5, cycle 2 — 2026-11-13 (~10:24 Europe/Paris)
+
+**Counts (supplied for this cycle, as of 2026-11-13 10:24 CET):** Rewindary 0 stars, 0 forks, 0 issues, 0 PRs · Abo Killer 0 stars, 0 forks, 0 issues, 0 PRs. `main` was clean at `7b647fb`.
+
+### Decision: merge exports added later by the same rules as one drop
+Exports arrive days apart (the calendar reminder exists for that reason), so the second one is often added from the review screen with "Add more files" or a drop. That path used a separate merge in `src/ui/App.tsx` that skipped the ingest rules:
+- **Spotify counted twice.** If someone loaded the 1-year account data (it arrives within days) and later added the extended history (up to 30 days), both were kept. Every play of the last year counted twice: in hours, top artists, streaks and the share card. Dropped together, the account data is set aside, but not when the files are added one after the other.
+- **A file added twice was reported as new.** Its events were de-duplicated, but its report showed the full entry count again and no "duplicate entries merged" note.
+- **YouTube durations stopped at the batch edge.** They are estimated from the gap to the next video, so the last video of each batch got the 8-minute default.
+
+The fix:
+- **`src/ingest.ts`:** `readBatch` returns what a drop held without merging it, and `combineBatches` merges every batch in the order it was added, through the same `mergeParsed` as a single drop. `ingestFiles` is now those two steps together, with the same output. Estimated durations are left out of the de-duplication key, because YouTube estimates are rewritten at each merge. Without that change, a Takeout added twice would not match itself.
+- **`src/worker.ts` / `src/ui/App.tsx`:** the worker returns the batch, and the app keeps every batch and re-merges on each add. The demo and "Forget everything" empty the list. "Forget everything" now also stops a read or folder listing still in progress, so a read that finishes later cannot bring forgotten files back.
+- No UI was added or restyled: the reports already show the "Ignored because…" and "duplicate entries merged" notes, and now they are also correct for files added later. Nothing new touches the network or storage.
+
+### Failures and notes
+- **A weak test, caught by its negative control:** the first version of the YouTube unit test read both batches before merging either. With the old key (estimated duration included), it still passed. In the app, each batch is merged as soon as it is read, which rewrites the earlier estimates. The test now merges after each batch like the app does. With the old key it then fails (8 events instead of 4), and with the fix it passes.
+- **E2E negative control:** the new E2E section was run against `main`'s source (the `src/` changes stashed and rebuilt). The account-data check failed (Spotify 4 → 5 entries), as did the added-twice check. The forget check passed there too, because the old `onForget` also emptied the data. The new guard covers only a read still running, which this check does not exercise.
+- **Review against `main` (revue-changement grid):** nothing blocking. Checked:
+  - Within one drop, the new key gives the same de-duplication: the only estimated events are YouTube (duration 0 before the estimate) and the quick Netflix CSV (a fixed duration per kind, and kind is already in the key).
+  - `ingestFiles` keeps its signature and output, and the worker's error path is unchanged.
+  - A failed add leaves earlier batches untouched.
+  - Files dropped on the demo still replace it.
+- **Not checked:**
+  - Only headless Chromium was run.
+  - No real (non-synthetic) export was used.
+  - The overlap between the quick Netflix CSV and `ViewingActivity.csv` was not examined. This change does not affect it either way.
+  - The "Forget everything during a read" guard has no automated check: the synthetic fixtures are read too fast for a click to land mid-read.
+- **No visual pass:** no layout, style or copy on screen changed. The notes shown are existing strings in the existing report list.
+- `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run and is not claimed green.** No billing, security or repository setting was touched. **The `fix/add-later-merge` branch was pushed; nothing was merged to `main`, and `gh-pages` was not deployed, so the live app still has the old merge.**
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `fix/add-later-merge` (fix commit `45dae7a`):
+- `tsc --noEmit` clean
+- 130/130 Vitest tests in 13 files (+3):
+  - the account data is set aside whichever Spotify export arrives first
+  - an export added twice is merged and reported
+  - YouTube durations are estimated across batches, and a Takeout added twice matches itself
+- production build: 86.59 kB JS (32.60 kB gzipped), 16.94 kB CSS, 25.27 kB worker. The old app-side merge is gone, and the worker no longer bundles the merge.
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present"
+- 69/69 browser E2E checks under `/rewindary/` (+4, through the real "Add more files" input):
+  - the 1-year data added after the extended history leaves the Spotify count unchanged and says why
+  - the same export added again is merged and reported
+  - after "Forget everything", the next file is read afresh
+  - zero external requests
+
+`git diff --check main` is clean.

@@ -175,7 +175,13 @@ function concat(chunks: Uint8Array[]): Uint8Array {
   return out;
 }
 
-interface Parsed { events: LifeEvent[]; report: ParseReport; profiles?: string[] }
+export interface Parsed { events: LifeEvent[]; report: ParseReport; profiles?: string[] }
+
+/**
+ * What one drop or file pick held, before merging. The app keeps every batch, so exports added later
+ * (they often arrive days apart) are merged by the same rules as files dropped together.
+ */
+export interface IngestBatch { parsed: Parsed[]; ignored: IgnoredFile[] }
 
 /** Detect a file's format from its content (names are only hints) and parse it. */
 export function parseTextFile(path: string, rawText: string): Parsed | null {
@@ -207,7 +213,9 @@ export function parseTextFile(path: string, rawText: string): Parsed | null {
   return null;
 }
 
-const key = (e: LifeEvent) => `${e.source}|${e.kind}|${e.t}|${e.ms}|${e.group}|${e.title}`;
+// An estimated duration is not part of the identity: YouTube estimates are rewritten each time batches are merged,
+// so a Takeout added twice must still match itself.
+const key = (e: LifeEvent) => `${e.source}|${e.kind}|${e.t}|${e.est ? '~' : e.ms}|${e.group}|${e.title}`;
 
 /** Merge per-file results: de-duplicate, prefer Spotify extended history over the 1-year account data. */
 export function mergeParsed(parsed: Parsed[]): Omit<IngestResult, 'ignored'> {
@@ -297,7 +305,17 @@ async function readFolder(files: InputBlob[], onProgress: Progress): Promise<{ t
   return { texts: results.filter((t): t is TextFile => t !== null), zips };
 }
 
+/** Merge every batch read so far, in the order it was added, as if all the files had been dropped at once. */
+export function combineBatches(batches: IngestBatch[]): IngestResult {
+  return { ...mergeParsed(batches.flatMap((b) => b.parsed)), ignored: batches.flatMap((b) => b.ignored) };
+}
+
 export async function ingestFiles(blobs: InputBlob[], onProgress: Progress = () => {}): Promise<IngestResult> {
+  return combineBatches([await readBatch(blobs, onProgress)]);
+}
+
+/** Read and parse dropped files, zips and folders without merging them, so later batches can join them. */
+export async function readBatch(blobs: InputBlob[], onProgress: Progress = () => {}): Promise<IngestBatch> {
   const parsed: Parsed[] = [];
   const ignored: IgnoredFile[] = [];
   /** Parse what a file, zip or folder held; returns how many files were kept or explained. */
@@ -337,5 +355,5 @@ export async function ingestFiles(blobs: InputBlob[], onProgress: Progress = () 
     for (const z of zips) await takeZip(z);
     if (take(texts) + zips.length === 0) ignored.push({ file: `${unit.name}/`, hint: explainFolder(signals) });
   }
-  return { ...mergeParsed(parsed), ignored };
+  return { parsed, ignored };
 }
