@@ -16,9 +16,9 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 
 ## What it does
 
-- **Four import adapters:** Spotify extended streaming history (or the 1-year account data), Apple Music play activity (Apple's privacy download, read straight from its nested `Apple_Media_Services.zip`), Google Takeout (YouTube watch and search history, Google Search activity, in JSON or HTML), and Netflix viewing activity (full data request, or the quick titles-and-dates CSV). You can drop the `.zip` files as they are; known history files are decompressed in full and photos and videos are never inflated; other `.json` and `.html` entries only have their first 32 KB looked at, and are dropped unless they open like Google activity. A Takeout in another language (French, German, Spanish… file and folder names) is read too: the importer recognises Google activity by how the file starts, not by its name.
+- **Four import adapters:** Spotify extended streaming history (or the 1-year account data), Apple Music play activity (Apple's privacy download, read straight from its nested `Apple_Media_Services.zip`), Google Takeout (YouTube watch and search history, Google Search activity, in JSON or HTML), and Netflix viewing activity (full data request, or the quick titles-and-dates CSV). You can drop the `.zip` files as they are (a Takeout made with the `.tgz` file type works too, unpacked in the browser by the same rules); known history files are decompressed in full and photos and videos are never inflated; other `.json` and `.html` entries only have their first 32 KB looked at, and are dropped unless they open like Google activity. A Takeout in another language (French, German, Spanish… file and folder names) is read too: the importer recognises Google activity by how the file starts, not by its name.
 - **Drop anywhere.** Files and folders can be dropped anywhere on the start page, not only on the drop zone. Exports that arrive later can be dropped straight onto the review screen (or added with "Add more files"), where they are merged with what was already read by the same rules as files dropped together: an export added twice is merged and reported, never counted twice, and the 1-year Spotify account data is set aside once the extended history is there, whichever arrived first. Likewise, the full Netflix viewing activity replaces the quick CSV's rows for the dates it covers, so a show is never counted twice. Drops on the story and the share card are refused, so the browser never opens a dropped file in place of the app (which would lose what was read).
-- **Unzipped folders work too.** Safari on macOS unzips downloads by default, so an export often arrives as a folder (`Takeout/`, `Spotify Extended Streaming History/`). Drop the folder, or use "choose a folder" (desktop browsers; the option is hidden on phones and tablets). Inside a folder the same rules apply as inside a zip: only `.zip`, `.json`, `.csv` and `.html` files are opened, Google Photos sidecars (`IMG_0001.jpg.json`) and media are skipped by name, and a folder with no history gets one note saying which export to request.
+- **Unzipped folders work too.** Safari on macOS unzips downloads by default, so an export often arrives as a folder (`Takeout/`, `Spotify Extended Streaming History/`). Drop the folder, or use "choose a folder" (desktop browsers; the option is hidden on phones and tablets). Inside a folder the same rules apply as inside a zip: only `.zip`, `.tgz`, `.json`, `.csv` and `.html` files are opened, Google Photos sidecars (`IMG_0001.jpg.json`) and media are skipped by name, and a folder with no history gets one note saying which export to request.
 - **One local event model.** Every source becomes the same `LifeEvent` shape (`src/model.ts`), so the metrics run across sources:
   - total hours and the share for each source
   - a 24-hour day clock stacked by source, plus your peak hour and how much happened at night
@@ -76,7 +76,7 @@ Exports come straight from each service and some take days, so request them firs
 2. Tick **YouTube and YouTube Music** → "All YouTube data included" → keep only **history**.
 3. Optional: tick **My Activity** and keep only **Search** to add your search rhythm. Only the timestamps are used.
 4. Pick JSON under "Multiple formats" if you can. HTML works too: dates in English, French, German, Spanish, Italian and Portuguese formats are parsed.
-5. Drop the `.zip`.
+5. Drop the `.zip`. If you picked `.tgz` as the file type, drop that instead: it is unpacked in the browser by the same rules, and a part that was cut short gets a note instead of failing the other files.
 
 **Netflix: viewing activity**
 - Best: in your account, open **Download your personal information** (up to 30 days) and drop the `.zip`. It contains `CONTENT_INTERACTION/ViewingActivity.csv` with exact start times and durations.
@@ -120,7 +120,7 @@ pnpm og-image         # re-capture public/og.jpg, the link-preview image, from t
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 132 Vitest tests in 13 files, run in UTC.
+- `node scripts/run-tests.mjs`: 137 Vitest tests in 14 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, the full Netflix activity over the quick CSV for the dates it covers (later quick rows kept), YouTube duration estimates, exports added later merged like one drop.
   - Insights: podcasts ranked apart from artists and songs (and kept off the card's #1 artist), streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years across all four services.
@@ -128,6 +128,7 @@ What `verify` runs, exactly:
   - Privacy receipt: same-origin vs external hosts, blocked attempts by host only, stored items.
   - Localized Takeouts: history under French, German and Spanish file names, the content check that decides what is kept (and that photo sidecars, bookmarks and Maps activity are not), thousands of tiny entries in one archive, stored (uncompressed) entries, and an entry with a compression method it cannot read.
   - Unzipped folders: a Takeout folder gives the same events as its zip, photos and sidecars are never opened, unreadable peeked files are skipped, one note per folder without history, zips inside a folder, the batched directory walk.
+  - Takeout as `.tgz` (or `.tar.gz`, `.tar`): the same events and report as the same Takeout zipped, long paths (ustar prefix, GNU long names, pax), any chunk size, a part with no history, a cut-short or mislabelled archive explained without failing the rest of the drop, and an unsupported loose file explained by name without being read.
   - Unrecognised files: Takeout with YouTube data but no history (and split parts), Takeout of other products, Spotify and Netflix exports without history, unsupported archives, history-named files that don't parse.
   - Apple Music: header detection, only `PLAY_END` rows count (with a fallback when there are none), UTC timestamps, skips and broken rows, no Apple ID/IP/device in the events, the nested `Apple_Media_Services.zip` (one level only), a missing-artist export, the 30 s play rule, the shared music persona and listening run, the #1 artist on cards and a four-source legend that fits the card.
   - Link previews: the build adds Open Graph and X tags whose only absolute URLs are the app's own address and its `og.jpg`, copies the page's title and description (a quote in them cannot break a tag), and the image is a 1200×630 JPEG under 300 KB.
@@ -147,6 +148,7 @@ What `verify` runs, exactly:
   - Checks that the privacy receipt reports no external requests, then surfaces the deliberate blocked `fetch` by host only after "Check again".
   - Uploads a Takeout part with no history, checks the explanation and that there is nothing to play, then adds the missing export from the same screen.
   - Adds exports later with "Add more files": the 1-year Spotify data after the extended history and the same export twice (neither counted twice), a fresh read after "Forget everything", and the full Netflix activity after the quick CSV (the rows it covers set aside, the later ones kept).
+  - Uploads a Takeout made as `.tgz` and checks its watch history is read, then adds a video file and checks it is explained by name.
   - Uploads a Takeout whose files have French names and checks that it is read with no stray notes.
   - Really drops files outside the drop zone: on the start page's heading (the zone lights up, the file is read), on the review screen (an overlay shows where it goes, the file is added, and a mouse move clears a drag that never ended), and on the story (refused). The browser's default handling, which would open the file in the tab, is cancelled each time.
   - Picks an unzipped Takeout folder and adds a Spotify folder from the review screen, then really drops a folder (through Chromium's DevTools protocol, since Playwright cannot drop directories) and a folder holding only photos.
@@ -163,7 +165,7 @@ The live site is served by GitHub Pages from the `gh-pages` branch, which holds 
 ```
 src/model.ts        unified LifeEvent model
 src/parsers/        spotify.ts · apple.ts · google.ts · netflix.ts · text.ts (CSV, entities, loose dates)
-src/ingest.ts       streaming unzip + unzipped folders + format detection (by name, then by content) + merge/dedupe
+src/ingest.ts       streaming unzip and .tgz (src/tar.ts) + unzipped folders + format detection (by name, then by content) + merge/dedupe
 src/insights.ts     cross-source metrics and persona
 src/cards.ts        share-card lines + SVG renderer (redaction lives here)
 src/receipt.ts      privacy receipt (reads Resource Timing + CSP reports, sends nothing)

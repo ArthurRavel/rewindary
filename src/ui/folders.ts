@@ -35,7 +35,7 @@ const fileOf = (entry: FileEntryLike) => new Promise<File>((ok, fail) => entry.f
 
 /**
  * Walk dropped files and folders. Files dropped on their own are all kept (so an unsupported one
- * still gets its note); inside a folder only .zip/.json/.csv/.html files are opened as File
+ * still gets its note); inside a folder only .zip/.tgz/.tar/.json/.csv/.html files are opened as File
  * objects, so the photos and videos of a big Takeout are never touched.
  */
 export async function walkEntries(entries: EntryLike[], onCount: (files: number) => void = () => {}): Promise<Picked[]> {

@@ -27,8 +27,10 @@ export function entrySignals(path: string): Signal[] {
   return out;
 }
 
-/** True for split Google Takeout parts such as takeout-20261110T101500Z-002.zip. */
-const isSplitPart = (name: string) => /-\d{3}\.zip$/i.test(name);
+/** True for split Google Takeout parts such as takeout-20261110T101500Z-002.zip (or .tgz). */
+const isSplitPart = (name: string) => /-\d{3}\.(zip|tgz|tar\.gz)$/i.test(name);
+/** Takeout's other file type; the hints say "archive" for it rather than "zip". */
+const archiveWord = (name: string) => (/\.(tgz|tar\.gz|tar)$/i.test(name) ? 'archive' : 'zip');
 
 const SPOTIFY = 'This Spotify export has no listening history. On Spotify’s privacy page, request “Extended streaming history” (or “Account data” for the last year); the technical log export has none.';
 const APPLE = 'This Apple export has no Apple Music play activity. At privacy.apple.com, request “Apple Media Services information” and drop the zip as it is; Rewindary reads “Apple Music Play Activity.csv” inside it. Apple may split the download into parts: drop them all.';
@@ -40,12 +42,12 @@ function takeoutHint(name: string, signals: ReadonlySet<Signal>): string {
   const base = signals.has('youtube')
     ? 'This Takeout has YouTube data but no watch or search history. In Takeout, open “All YouTube data included” and make sure “history” is ticked.'
     : 'This Takeout has no YouTube or Search history. Select “YouTube and YouTube Music” with “history”, and optionally My Activity → Search.';
-  return isSplitPart(name) ? `${base} Big Takeouts are split into several zips: if you have other parts, drop them too.` : base;
+  return isSplitPart(name) ? `${base} Big Takeouts are split into several ${archiveWord(name)}s: if you have other parts, drop them too.` : base;
 }
 
 /** A zip in which no known history file was found. */
 export function explainZip(name: string, signals: ReadonlySet<Signal>): string {
-  return explainService(name, signals) ?? (isSplitPart(name) ? takeoutHint(name, signals) : 'No Spotify, Apple Music, YouTube, Google Search or Netflix history inside this zip.');
+  return explainService(name, signals) ?? (isSplitPart(name) ? takeoutHint(name, signals) : `No Spotify, Apple Music, YouTube, Google Search or Netflix history inside this ${archiveWord(name)}.`);
 }
 
 /** An unzipped export folder in which no known history file was found. A folder name says nothing about split parts. */
@@ -71,5 +73,5 @@ export function explainFile(path: string, knownName: boolean): string {
   if (signals.has('netflix')) return NETFLIX;
   if (signals.has('meta')) return META;
   if (/\.(json|csv|html?)$/i.test(path)) return 'Not a Spotify, Apple Music, YouTube, Google Search or Netflix history file. See “Get your data” on the start page for the files to look for.';
-  return 'Only .zip, .json, .csv and .html exports can be read.';
+  return 'Only .zip, .tgz, .json, .csv and .html exports can be read.';
 }
