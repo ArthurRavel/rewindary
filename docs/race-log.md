@@ -701,3 +701,46 @@ The fix (in `src/ingest.ts`, `mergeParsed` only):
 - 70/70 browser E2E checks under `/rewindary/` (+1, through the real "Add more files" input): the full Netflix activity added after the quick CSV sets aside the covered row, keeps the 2 later ones and says so
 
 `git diff --check main` is clean. The README banner, badges, GIF and closing AI disclosure are unchanged.
+
+## Day 5, cycle 4 — 2026-11-13 (~20:53 Europe/Paris)
+
+**Counts (freshly verified on GitHub's public API, 2026-11-13 21:06 CET):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs (PRs #1–#3 are closed) · Abo Killer 0 stars, 0 forks, 0 open issues, 0 open PRs. `main` was clean at `e053bf1`.
+
+### Decision: read Google Takeout exports made with the `.tgz` file type
+Google Takeout's "File type" option offers `.tgz` as well as `.zip`. Rewindary had no `.tgz` reader. Worse, any loose file that wasn't a zip went through `blob.text()` in full before being rejected, so a multi-GB Takeout part was loaded into memory as one string (which can stall or crash the tab) only to be told "Only .zip, .json, .csv and .html exports can be read."
+
+The change:
+- **`src/tar.ts` (new):** a minimal streaming tar reader (ustar prefix, GNU long names, pax `path`/`size`, base-256 sizes), fed by fflate's streaming `Gunzip` in the worker. fflate was already a dependency, and nothing new touches the network or storage.
+- **`src/ingest.ts`:** `.tgz`, `.tar.gz` and `.tar` follow the zip rules, which now live in one shared picker and collector:
+  - known history names are kept in full
+  - other `.json`/`.html` entries are peeked at (first 32 KB)
+  - everything else is decompressed in passing and never kept
+  A cut-short or mislabelled `.tgz` gets a note ("could not be read to the end… download it again, or pick .zip") instead of failing the other files of the drop. A loose file without a supported extension is explained by name and never read. Archives inside dropped folders follow the same rules.
+- **`src/diagnose.ts`:** the split-part and empty-archive hints say "archives" for `.tgz` and keep "zips" for zips. **UI:** the file pickers accept `.tgz/.gz/.tar`, and the "unsupported" message and the folder message name `.tgz`. No layout or styling changed.
+
+### Failures and notes
+- **Negative control:** with `main`'s `src/ingest.ts` and `src/diagnose.ts`, all 4 new ingest tests fail. The pure `TarReader` test passes either way, since it doesn't depend on the old code.
+- **Gate failure on the first run:** an existing `tests/folders.test.ts` assertion still expected the old "Only .zip, .json…" text. It was updated, and the full gate was re-run.
+- **Review against `main` (revue-changement grid):** one finding, fixed: a JSDoc block had ended up above the wrong constant. Accepted as minor: the unreadable-archive note says ".tgz" even for a plain `.tar`. Intended behaviour change: a loose file with no supported extension (for example a history file renamed without `.json`) is no longer read; folders already worked this way.
+- **No PR could be opened:** this machine has no GitHub API credential (no `gh` CLI, no token; SSH push works). The branch `feat/takeout-tgz` (`69bcdd9`) was pushed and merged locally with `--no-ff` as `bfa6df8`, as in earlier cycles' `merge:` commits. For the same reason the Pages build could not be triggered or read through the API. The push to `gh-pages` started a build anyway, and the live HTML switched to the new bundle about 45 s later (`Last-Modified: Fri, 13 Nov 2026 20:05:33 GMT`).
+- **Not checked:** only headless Chromium. No real (non-synthetic) Takeout `.tgz` was used, and the tar archives were built by the tests. Multi-member gzip and very large (multi-GB) archives were not exercised.
+- `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run and is not claimed green.** No billing, security or repository setting was touched. No outreach.
+
+### Verified
+`corepack pnpm@9.15.0 verify` exited 0 on `feat/takeout-tgz` and again on the merged `main` `bfa6df8`:
+- `tsc --noEmit` clean
+- 137/137 Vitest tests in 14 files (+5 in `tests/tgz.test.ts`):
+  - a `.tgz` gives the same events and report as the same Takeout zipped
+  - long paths in all three tar styles, `.tar.gz` and `.tar`, localized names by content
+  - a part with no history, a cut-short and a mislabelled archive explained without failing the drop
+  - a 5 GB loose video explained without being read
+  - `TarReader` at chunk sizes 1–4096
+- production build: 87.35 kB JS (32.86 kB gzipped), 16.94 kB CSS, 29.27 kB worker
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present"
+- 73/73 browser E2E checks under `/rewindary/` (+3): a `.tgz` Takeout uploaded through the real input is read, a video added later is explained by name while the history stays, and zero external requests
+
+`git diff --check main` is clean. The review screen with a `.tgz` note and a video note was inspected at 320×640 and 1440×900: `scrollWidth` equals `clientWidth` at both, and the notes wrap inside their cards.
+
+### Deploy and live verification
+- **Deploy:** the exact six `dist` files from merged `main` `bfa6df8` were published, SHA-256-identical, as `gh-pages` `465398a`, authored with `145747193+ArthurRavel@users.noreply.github.com`.
+- **Live:** the URL returns HTTP 200 and serves `index-B-nNJ867.js` and `worker-QsRmkDtU.js`, byte-identical to the local build. All 73 live E2E checks passed, including the `.tgz` Takeout and zero external requests.
