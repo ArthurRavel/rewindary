@@ -655,3 +655,12 @@ The fix:
   - zero external requests
 
 `git diff --check main` is clean.
+
+### Post-merge deploy and verification
+- **Merge:** PR #1 was merged at 2026-11-13T09:33:43Z as `bdd75ef`; `main` is clean.
+- **Verified (merged `main`):** `corepack pnpm@9.15.0 verify` passed: TypeScript, 130/130 unit tests in 13 files, production build, strict 6-file privacy scan and 69/69 local browser E2E checks.
+- **Deploy:** the exact six `dist` files were published, SHA-256-identical, as `gh-pages` `6063139`, authored with `145747193+ArthurRavel@users.noreply.github.com`.
+- **Pages build:** the explicitly triggered legacy Pages build for `6063139` was created at 09:35:01Z and reached `built` at 09:35:24Z with no error.
+- **Live:** the HTML serves `index-DI1SlFkA.js` and `index-CP8Tm-YT.css`. All 69 live E2E checks passed, including exports added later and zero external requests.
+
+GitHub Actions remain unavailable (account locked for billing), so CI is not claimed.
