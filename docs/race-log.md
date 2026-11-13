@@ -570,7 +570,7 @@ GitHub Actions remain unavailable, so CI is not claimed green.
 
 ## Day 5 — 2026-11-13 (scheduled cycle, ~04:10 Europe/Paris)
 
-**Counts (as supplied at the start of the cycle; not re-queried by this run):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs. `main` was clean at `1642356`.
+**Counts (freshly verified on GitHub for this cycle at about 05:15 Europe/Paris):** Rewindary 0 stars, 0 forks, 0 issues, 0 PRs · Abo Killer 0 stars, 0 forks, 0 issues, 0 PRs. `main` was clean at `1642356`.
 
 ### Decision: never rank a podcast as an artist
 `computeInsights` ranked every Spotify "group" by listening time, so podcast shows and audiobooks were ranked together with artists. One hour-long episode outweighs about twenty songs. A listener with a daily show could see it as their #1 "artist" on the Spotify slide, with episodes counted as "plays", and on the share card's "#1 artist" line. A resumed episode could also take "On repeat". The synthetic demo hid this because its artists dominate, which is why no earlier check caught it.
