@@ -80,6 +80,39 @@ describe('exports added later', () => {
     }
   });
 
+  const fullNetflix = () => file('ViewingActivity.csv', fixture('netflix/ViewingActivity.csv'));
+  // The full fixture runs from 8 to 10 March 2025; this quick CSV holds the same days, the last one included.
+  const quickCovered = () => file('NetflixViewingHistory.csv', [
+    'Title,Date',
+    '"The Lighthouse Accord: Season 1: Chapter 1","2025-03-08"',
+    '"A Map of Rain","2025-03-09"',
+    '"Ninth Garden: Limited Series: Episode 1","2025-03-10"',
+  ].join('\n'));
+
+  it('ignores the quick Netflix CSV where the full viewing activity covers its dates, whichever arrives first', async () => {
+    const full = await ingestFiles([fullNetflix()]);
+    for (const r of [await ingestFiles([quickCovered(), fullNetflix()]), await later([quickCovered()], [fullNetflix()]), await later([fullNetflix()], [quickCovered()])]) {
+      expect(r.events).toEqual(full.events);
+      const quick = r.reports.find((x) => x.format.startsWith('Netflix viewing history'));
+      expect(quick).toMatchObject({ events: 0, skipped: 3, warnings: ['Ignored because the full viewing activity covers the same dates, with exact times and durations.'] });
+    }
+  });
+
+  it('keeps quick Netflix CSV rows from after the full viewing activity ends', async () => {
+    const full = await ingestFiles([fullNetflix()]);
+    // Fixture rows: 2 March (covered), 14 and 15 March (after the full export's last day, 10 March).
+    const r = await later([fullNetflix()], [file('NetflixViewingHistory.csv', fixture('netflix/NetflixViewingHistory.csv'))]);
+    const added = r.events.filter((e) => e.est);
+    expect(r.events).toHaveLength(full.events.length + 2);
+    expect(added.map((e) => new Date(e.t).toISOString().slice(0, 10))).toEqual(['2025-03-14', '2025-03-15']);
+    expect(added.some((e) => e.group === 'Midnight Ferry')).toBe(false);
+    const quick = r.reports.find((x) => x.format.startsWith('Netflix viewing history'))!;
+    expect(quick).toMatchObject({ events: 2, skipped: 1 });
+    expect(quick.warnings).toContain('1 entry set aside because the full viewing activity already covers those dates; 2 entries from after it ends kept.');
+    // Without the full export, the quick CSV counts in full as before.
+    expect((await ingestFiles([file('NetflixViewingHistory.csv', fixture('netflix/NetflixViewingHistory.csv'))])).events).toHaveLength(3);
+  });
+
   it('merges an export added twice and says so', async () => {
     const once = await ingestFiles([extended()]);
     const r = await later([extended()], [extended()]);

@@ -664,3 +664,40 @@ The fix:
 - **Live:** the HTML serves `index-DI1SlFkA.js` and `index-CP8Tm-YT.css`. All 69 live E2E checks passed, including exports added later and zero external requests.
 
 GitHub Actions remain unavailable (account locked for billing), so CI is not claimed.
+
+## Day 5, cycle 3 — 2026-11-13 (~15:40 Europe/Paris)
+
+**Counts (supplied for this cycle, as of 2026-11-13 15:40 CET):** Rewindary 0 stars, 0 forks, 0 issues, 0 PRs · Abo Killer 0 stars, 0 forks. `main` was clean at `3a22f5b`.
+
+### Decision: never count a Netflix title twice when both Netflix files are added
+The README's Netflix guide offers two files: the instant `NetflixViewingHistory.csv` (titles and dates) and the full data request (`ViewingActivity.csv`, up to 30 days). The calendar reminder exists for that wait, and the previous cycle made exports added later merge by the single-drop rules. But there was no rule for these two files. The quick rows are anchored at 20:00 local with estimated durations, so they never matched the full rows in de-duplication. Someone who started with the quick file and added the full one later got every overlapping watch counted twice: in Netflix hours, the binge, the top show, the day clock and the share card. The last cycle's log listed this overlap as not examined.
+
+The fix (in `src/ingest.ts`, `mergeParsed` only):
+- When the full viewing activity is present, the quick CSV's rows **on or before the last local day it covers** are set aside, because the full export has them with real times and durations. Rows from after that day are kept, because the quick file is often the newer one.
+- The quick file's report says what happened: "Ignored because the full viewing activity covers the same dates, with exact times and durations." when nothing is left, or "N entries set aside because the full viewing activity already covers those dates; M entries from after it ends kept.". Set-aside rows are counted as skipped.
+- The result is the same whichever file arrives first, and the same as dropping both together, because every batch is re-merged.
+- No UI, styling or copy component changed; the notes go through the existing report list. Nothing new touches the network or storage.
+
+### Failures and notes
+- **Why not match row by row:** the quick CSV has no time of day, and its titles can't be assumed to be spelled like `ViewingActivity.csv` titles in real exports (none were used). A date cut-off does not depend on either.
+- **Negative controls:** the 2 new unit tests failed against `main`'s `src/ingest.ts` and pass with the fix. The new E2E check, run on a build of `main`'s `src/ingest.ts`, failed with "Netflix 8" (5 full + all 3 quick rows); with the fix it reads "Netflix 7" (5 full + the 2 later quick rows).
+- **Review against `main` (revue-changement grid):** nothing blocking. Checked: the cut-off is computed in local time, the same frame as the quick rows' 20:00 anchor (DST-safe). A full export with only trailers or previews leaves the quick file untouched. Reports are copied, not mutated. A quick file added twice is still de-duplicated after the set-aside. Without a full export nothing changes.
+- **Known limits, not fixed:**
+  - Quick rows dated *before* the full export starts are also set aside. For one account that cannot happen (the full request holds the whole history). A quick file from a *different* Netflix account would lose its covered rows.
+  - The quick rows kept after the cut-off have no profile (the file doesn't name one), so the Netflix profile filter cannot hide them. Quick rows already worked this way.
+  - The README's unit-test count was stale (127, against 130 after the last cycle); it now says 132.
+- **Not checked:** only headless Chromium was run, and no real (non-synthetic) Netflix export was used.
+- A `vite preview` on port 4174, started on 2026-11-09 and not by this run, was left running.
+- `pnpm` is not on the PATH, so commands ran as `corepack pnpm@9.15.0 …`. **GitHub Actions cannot start (account locked for billing) and there is no workflow, so CI was not run and is not claimed green.** No billing, security or repository setting was touched. **Nothing was pushed, merged or deployed by this run.**
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `fix/netflix-quick-overlap`:
+- `tsc --noEmit` clean
+- 132/132 Vitest tests in 13 files (+2):
+  - a quick CSV inside the full export's dates is ignored, whether dropped together or added in either order
+  - quick rows from after the full export ends are kept (2 of 3 in the fixture), with the report's note
+- production build: 87.30 kB JS (32.83 kB gzipped), 16.94 kB CSS, 25.27 kB worker
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present"
+- 70/70 browser E2E checks under `/rewindary/` (+1, through the real "Add more files" input): the full Netflix activity added after the quick CSV sets aside the covered row, keeps the 2 later ones and says so
+
+`git diff --check main` is clean. The README banner, badges, GIF and closing AI disclosure are unchanged.

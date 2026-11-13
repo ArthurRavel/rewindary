@@ -17,7 +17,7 @@ Drop the official data exports and you get an animated, mobile-first year in rev
 ## What it does
 
 - **Four import adapters:** Spotify extended streaming history (or the 1-year account data), Apple Music play activity (Apple's privacy download, read straight from its nested `Apple_Media_Services.zip`), Google Takeout (YouTube watch and search history, Google Search activity, in JSON or HTML), and Netflix viewing activity (full data request, or the quick titles-and-dates CSV). You can drop the `.zip` files as they are; known history files are decompressed in full and photos and videos are never inflated; other `.json` and `.html` entries only have their first 32 KB looked at, and are dropped unless they open like Google activity. A Takeout in another language (French, German, Spanish… file and folder names) is read too: the importer recognises Google activity by how the file starts, not by its name.
-- **Drop anywhere.** Files and folders can be dropped anywhere on the start page, not only on the drop zone. Exports that arrive later can be dropped straight onto the review screen (or added with "Add more files"), where they are merged with what was already read by the same rules as files dropped together: an export added twice is merged and reported, never counted twice, and the 1-year Spotify account data is set aside once the extended history is there, whichever arrived first. Drops on the story and the share card are refused, so the browser never opens a dropped file in place of the app (which would lose what was read).
+- **Drop anywhere.** Files and folders can be dropped anywhere on the start page, not only on the drop zone. Exports that arrive later can be dropped straight onto the review screen (or added with "Add more files"), where they are merged with what was already read by the same rules as files dropped together: an export added twice is merged and reported, never counted twice, and the 1-year Spotify account data is set aside once the extended history is there, whichever arrived first. Likewise, the full Netflix viewing activity replaces the quick CSV's rows for the dates it covers, so a show is never counted twice. Drops on the story and the share card are refused, so the browser never opens a dropped file in place of the app (which would lose what was read).
 - **Unzipped folders work too.** Safari on macOS unzips downloads by default, so an export often arrives as a folder (`Takeout/`, `Spotify Extended Streaming History/`). Drop the folder, or use "choose a folder" (desktop browsers; the option is hidden on phones and tablets). Inside a folder the same rules apply as inside a zip: only `.zip`, `.json`, `.csv` and `.html` files are opened, Google Photos sidecars (`IMG_0001.jpg.json`) and media are skipped by name, and a folder with no history gets one note saying which export to request.
 - **One local event model.** Every source becomes the same `LifeEvent` shape (`src/model.ts`), so the metrics run across sources:
   - total hours and the share for each source
@@ -81,6 +81,7 @@ Exports come straight from each service and some take days, so request them firs
 **Netflix: viewing activity**
 - Best: in your account, open **Download your personal information** (up to 30 days) and drop the `.zip`. It contains `CONTENT_INTERACTION/ViewingActivity.csv` with exact start times and durations.
 - Instant: Account → Profile → **Viewing activity → Download all** gives `NetflixViewingHistory.csv`. It has titles and dates only, so durations are estimated. Day-first and month-first dates are detected automatically.
+- You can start with the instant file and add the full one when it arrives. The quick file's rows on or before the last day of the full activity are set aside (the full one has them with real times and durations). Later rows are kept, because the quick file may be newer. The review screen says how many rows were set aside and how many were kept.
 
 ## Competition and naming (checked 9 Nov 2026)
 
@@ -119,9 +120,9 @@ pnpm og-image         # re-capture public/og.jpg, the link-preview image, from t
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 127 Vitest tests in 13 files, run in UTC.
+- `node scripts/run-tests.mjs`: 132 Vitest tests in 13 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
-  - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, YouTube duration estimates.
+  - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, the full Netflix activity over the quick CSV for the dates it covers (later quick rows kept), YouTube duration estimates, exports added later merged like one drop.
   - Insights: podcasts ranked apart from artists and songs (and kept off the card's #1 artist), streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years across all four services.
   - Redaction: all card formats and themes, review lines equal card lines, XML escaping, the footer (once per card, the only address on it, and it fits).
   - Privacy receipt: same-origin vs external hosts, blocked attempts by host only, stored items.
@@ -145,6 +146,7 @@ What `verify` runs, exactly:
   - Checks zero external requests, that the CSP blocks a deliberate `fetch`, empty storage, and no page errors.
   - Checks that the privacy receipt reports no external requests, then surfaces the deliberate blocked `fetch` by host only after "Check again".
   - Uploads a Takeout part with no history, checks the explanation and that there is nothing to play, then adds the missing export from the same screen.
+  - Adds exports later with "Add more files": the 1-year Spotify data after the extended history and the same export twice (neither counted twice), a fresh read after "Forget everything", and the full Netflix activity after the quick CSV (the rows it covers set aside, the later ones kept).
   - Uploads a Takeout whose files have French names and checks that it is read with no stray notes.
   - Really drops files outside the drop zone: on the start page's heading (the zone lights up, the file is read), on the review screen (an overlay shows where it goes, the file is added, and a mouse move clears a drag that never ended), and on the story (refused). The browser's default handling, which would open the file in the tab, is cancelled each time.
   - Picks an unzipped Takeout folder and adds a Spotify folder from the review screen, then really drops a folder (through Chromium's DevTools protocol, since Playwright cannot drop directories) and a folder holding only photos.

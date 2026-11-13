@@ -433,6 +433,17 @@ await page.getByTestId('file-input').setInputFiles(join(ROOT, 'tests/fixtures/sp
 await page.getByTestId('play').waitFor();
 const fresh = await page.getByTestId('reports').innerText();
 check(/Spotify account/.test(fresh) && !/Spotify extended|Ignored because/.test(fresh), 'after "Forget everything", files are read afresh, without the forgotten ones');
+// The quick Netflix CSV is instant and the full data request takes up to 30 days: the full one, added later, replaces the quick rows it covers.
+await page.goto(app);
+await page.getByTestId('file-input').setInputFiles(join(ROOT, 'tests/fixtures/netflix/NetflixViewingHistory.csv'));
+await page.getByTestId('play').waitFor();
+await page.getByTestId('add-files').setInputFiles(netflixCsv);
+await reportsHave(/Netflix viewing activity/);
+const netflixReports = await page.getByTestId('reports').innerText();
+const fullEntries = Number(/Netflix viewing activity \(full data request\) — (\d+) entries/.exec(netflixReports)?.[1]);
+const netflixCount = (await page.locator('.controls label.check', { hasText: 'Netflix' }).innerText()).replace(/\s+/g, ' ');
+check(/Netflix viewing history \(titles \+ dates\) — 2 entries, 1 skipped/.test(netflixReports) && /1 entry set aside because the full viewing activity already covers those dates; 2 entries from after it ends kept\./.test(netflixReports) && netflixCount === `Netflix ${fullEntries + 2}`,
+  `the full Netflix activity added after the quick CSV replaces the rows it covers and keeps the later ones (${netflixCount})`);
 check(external.length === 0, `still no request left ${app} after adding exports later`);
 
 await browser.close();

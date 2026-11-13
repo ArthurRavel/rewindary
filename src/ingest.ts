@@ -217,9 +217,28 @@ export function parseTextFile(path: string, rawText: string): Parsed | null {
 // so a Takeout added twice must still match itself.
 const key = (e: LifeEvent) => `${e.source}|${e.kind}|${e.t}|${e.est ? '~' : e.ms}|${e.group}|${e.title}`;
 
-/** Merge per-file results: de-duplicate, prefer Spotify extended history over the 1-year account data. */
+const entries = (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`;
+
+/**
+ * Midnight (local time) after the last day the full Netflix viewing activity covers, or null without one.
+ * The quick "titles + dates" CSV has no times, so its rows can't be matched one by one: a row on or before
+ * that day is already in the full export (with its real time and duration), a later one is not.
+ */
+function netflixFullEnd(parsed: Parsed[]): number | null {
+  let last = -Infinity;
+  for (const p of parsed) if (p.report.format.startsWith('Netflix viewing activity')) for (const e of p.events) last = Math.max(last, e.t);
+  if (last === -Infinity) return null;
+  const d = new Date(last);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+}
+
+/**
+ * Merge per-file results: de-duplicate, prefer Spotify extended history over the 1-year account data, and
+ * prefer the full Netflix viewing activity over the quick CSV for the dates it covers.
+ */
 export function mergeParsed(parsed: Parsed[]): Omit<IngestResult, 'ignored'> {
   const hasExtended = parsed.some((p) => p.report.format.startsWith('Spotify extended') && p.events.length > 0);
+  const netflixEnd = netflixFullEnd(parsed);
   const seen = new Set<string>();
   const events: LifeEvent[] = [];
   const reports: ParseReport[] = [];
@@ -229,8 +248,22 @@ export function mergeParsed(parsed: Parsed[]): Omit<IngestResult, 'ignored'> {
       reports.push({ ...p.report, events: 0, skipped: p.report.events + p.report.skipped, warnings: [...p.report.warnings, 'Ignored because the extended streaming history covers the same plays.'] });
       continue;
     }
+    let { events: own, report } = p;
+    if (netflixEnd !== null && report.format.startsWith('Netflix viewing history')) {
+      const later = own.filter((e) => e.t >= netflixEnd);
+      const covered = own.length - later.length;
+      if (covered) {
+        own = later;
+        report = {
+          ...report, events: later.length, skipped: report.skipped + covered,
+          warnings: later.length
+            ? [...report.warnings, `${entries(covered)} set aside because the full viewing activity already covers those dates; ${entries(later.length)} from after it ends kept.`]
+            : ['Ignored because the full viewing activity covers the same dates, with exact times and durations.'],
+        };
+      }
+    }
     let dupes = 0;
-    for (const e of p.events) {
+    for (const e of own) {
       const k = key(e);
       if (seen.has(k)) {
         dupes++;
@@ -240,7 +273,7 @@ export function mergeParsed(parsed: Parsed[]): Omit<IngestResult, 'ignored'> {
       events.push(e);
     }
     p.profiles?.forEach((x) => profiles.add(x));
-    reports.push(dupes ? { ...p.report, events: p.report.events - dupes, warnings: [...p.report.warnings, `${dupes} duplicate entries merged.`] } : p.report);
+    reports.push(dupes ? { ...report, events: report.events - dupes, warnings: [...report.warnings, `${dupes} duplicate entries merged.`] } : report);
   }
   events.sort((a, b) => a.t - b.t);
   estimateYouTubeDurations(events);
