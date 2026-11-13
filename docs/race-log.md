@@ -598,3 +598,12 @@ The fix:
 - 65/65 browser E2E checks under `/rewindary/`. The new one is on the demo's Spotify slide: "Top podcast or audiobook: The Patient Engineer, 20 h 48 min.", with Velvet Static leading the artist list and no podcast in it.
 
 `git diff --check main` is clean. The demo's Spotify slide was inspected at 320×640, 390×844 and 1440×900: the note sits below the list and fits inside the viewport (its bottom edge at 494, 597 and 631 px), and `scrollWidth` equals `clientWidth` at every width.
+
+### Post-merge deploy and verification
+- **Merge:** `fix/podcasts-not-artists` was merged to `main` as `5845f71`; `main` is clean.
+- **Deploy:** the exact verified `dist` was published as `gh-pages` `174a6f0`.
+- **Pages build:** the explicitly triggered legacy Pages build for `174a6f0` reached `built` with no error (created 2026-11-13T04:18:26Z, updated 04:19:00Z).
+- **Live E2E:** the live URL returned HTTP 200, and all 65 checks passed, including the separate podcast ranking, with zero external requests, empty storage and no page errors.
+- **Counts (freshly verified on GitHub):** Rewindary 0 stars, 0 forks, 0 issues, 0 PRs · Abo Killer 0 stars, 0 forks, 0 issues, 0 PRs.
+
+GitHub Actions remain unavailable, so CI is not claimed green.
