@@ -788,4 +788,10 @@ The change:
 - Only synthetic data was used, not a real YouTube Music Takeout. YouTube Music searches (`music.youtube.com/search`) are still skipped, as before.
 - `public/og.jpg` and `docs/media/demo.gif` were not re-captured, so they show the demo before YouTube Music joined it.
 - The home page heading still names "Spotify, Apple Music, YouTube and Netflix".
-- GitHub Actions cannot start (billing lock), so CI is not claimed. The branch was pushed unmerged; nothing was merged or deployed. No outreach.
+
+### Merge, verify, deploy
+- PR #6 merged as `main` `06c3de70` at 2026-11-14T11:48:20Z.
+- `corepack pnpm@9.15.0 verify` on merged `main`: TypeScript clean, 177/177 tests in 16 files, production build (90.32 kB JS / 34.28 kB gzipped, 17.04 kB CSS, 31.12 kB worker), six-file privacy scan, 73/73 local E2E.
+- The exact six-file `dist` was SHA-256-identical to `gh-pages` `361ceef9b34bf99a2957fab462f751e947b333ca`. A manually triggered legacy Pages build reached `built` with no error at 2026-11-14T11:50:46Z.
+- 73/73 live E2E passed, including the `ytmusic` slide, zero external requests, empty storage and no page errors.
+- **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** No outreach.
