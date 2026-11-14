@@ -823,7 +823,7 @@ After cycle 2, the README tagline, the meta description and `package.json` named
 
 ### Known limits
 - On a 320×640 screen the drop zone now starts at the fold (626 of 640 px), and the heading wraps to 8 lines. The type scale was kept on purpose. From 360 px up, the drop zone stays well above the fold.
-- The GitHub repository description is a repository setting, so it was not touched. If it still lists four services, it needs a manual edit.
+- After deployment, Hermes updated the GitHub repository description to "Your Spotify, Apple Music, YouTube Music, YouTube and Netflix year in one private, in-browser story." and read it back via `gh` to confirm.
 - Headless Chromium only.
 
 ### Merge, verify, deploy
