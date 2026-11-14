@@ -744,3 +744,21 @@ The change:
 ### Deploy and live verification
 - **Deploy:** the exact six `dist` files from merged `main` `bfa6df8` were published, SHA-256-identical, as `gh-pages` `465398a`, authored with `145747193+ArthurRavel@users.noreply.github.com`.
 - **Live:** the URL returns HTTP 200 and serves `index-B-nNJ867.js` and `worker-QsRmkDtU.js`, byte-identical to the local build. All 73 live E2E checks passed, including the `.tgz` Takeout and zero external requests.
+
+## Day 6 — 2026-11-14
+
+**Counts (fresh on GitHub, same at cycle start and finish):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 open issues, 0 open PRs.
+
+### Decision: read Takeout HTML dates written in the account's language
+HTML is Takeout's default for YouTube and My Activity history, and it writes dates in the account's language. Only English-style month-name dates parsed, so German (`07.03.2025, 21:05:02 MEZ`, although the README listed German), Japanese, Korean, Chinese, Russian, Dutch, Polish and many other histories read as undated and were dropped.
+
+The parser (`src/parsers/text.ts`) now strips zone names/offsets and bidi marks, folds Arabic-Indic digits, reads colon, dotted and Korean/CJK times, knows month abbreviations in more languages (accent-insensitive), reads numeric year-first dates, and decides day-first vs month-first once per file. Impossible dates (31 February, hour 25) and unknown calendars are rejected instead of guessed. 25 of 31 ICU locale formats now parse, against 9 before. Negative control: the new tests fail 22 of 29 on `main`'s parser.
+
+**Known limits:** 6 of the 31 ICU locale formats still don't parse. Hebrew months and Buddhist-era or Persian-calendar years are rejected on purpose, so those entries stay undated. The formats are ICU's, pinned in the test, not real Takeout exports.
+
+### Merge, verify, deploy
+- PR #4 merged as `main` `4206523` at 06:28:54Z.
+- `corepack pnpm@9.15.0 verify` on merged `main`: TypeScript clean, 167/167 tests in 15 files, production build (89.08 kB JS, 31.01 kB worker, 16.94 kB CSS), strict 6-file privacy scan, 73/73 local E2E.
+- The exact six-file `dist` matched what was published byte-for-byte, as `gh-pages` `e7e9f1a` with the verified noreply identity. Legacy Pages build 1368334378 reached `built` with no error for `e7e9f1a`.
+- 73/73 live E2E passed, including zero external requests, empty storage and no page errors.
+- **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** No outreach.
