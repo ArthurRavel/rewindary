@@ -2,7 +2,7 @@
 // Fails on: any request outside the app's own URL, CSP violations, page errors, unredacted card output.
 // By default it serves dist/ under /rewindary/ like GitHub Pages. Set E2E_URL to test a deployed copy instead,
 // e.g. E2E_URL=https://arthurravel.github.io/rewindary/ node scripts/e2e.mjs
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync, zipSync } from 'fflate';
@@ -11,6 +11,8 @@ import { serve } from './serve.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const SHOTS = process.argv.includes('--shots') ? join(ROOT, 'docs/media/frames') : null;
+// Frames are numbered in capture order, so a run with a new slide would otherwise leave stale frames for demo-gif.mjs to pick up.
+if (SHOTS) rmSync(SHOTS, { recursive: true, force: true });
 const fx = (p) => readFileSync(join(ROOT, 'tests/fixtures', p));
 let failures = 0;
 const check = (ok, msg) => { console.log(`${ok ? '  ✓' : '  ✗'} ${msg}`); if (!ok) failures++; };
@@ -38,6 +40,10 @@ let shot = 0;
 const snap = async (name) => {
   if (!SHOTS) return;
   mkdirSync(SHOTS, { recursive: true });
+  // Let entrance animations land so a frame never catches a list mid-rise; the progress bar's fill runs all slide long and is left alone.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.animationName !== 'fill' && Number.isFinite(a.effect?.getComputedTiming().endTime))
+    .map((a) => a.finished.catch(() => {}))));
   await page.screenshot({ path: join(SHOTS, `${String(shot++).padStart(2, '0')}-${name}.png`) });
 };
 
