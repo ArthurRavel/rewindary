@@ -762,3 +762,30 @@ The parser (`src/parsers/text.ts`) now strips zone names/offsets and bidi marks,
 - The exact six-file `dist` matched what was published byte-for-byte, as `gh-pages` `e7e9f1a` with the verified noreply identity. Legacy Pages build 1368334378 reached `built` with no error for `e7e9f1a`.
 - 73/73 live E2E passed, including zero external requests, empty storage and no page errors.
 - **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** No outreach.
+
+## Day 6, cycle 2 — 2026-11-14
+
+### Decision: YouTube Music is its own music source
+The Google parser already tagged YouTube Music plays (`header: "YouTube Music"`, `music.youtube.com`) as `kind: 'music'`, but nothing downstream used it. They stayed under YouTube: counted as "videos", their artists ranked among YouTube channels (and could become the card's "#1 channel"), and a YouTube Music listener got a YouTube persona ("Rabbit-Holer") instead of a music one. The Takeout that Rewindary already asks for ("YouTube and YouTube Music") contains this history.
+
+The change:
+- **`src/model.ts` / `src/parsers/google.ts`:** a new `ytmusic` source ("YouTube Music"), added to the music sources. Videos and YouTube Music plays still share one duration-estimate timeline, as in the history file, and the file's report stays a YouTube Takeout report.
+- **`src/insights.ts`:** YouTube Music artists and songs are ranked by plays (durations are estimated). It counts in the music persona lane. The listening run "without a break" now uses exact durations only, so estimated plays never make one.
+- **Story / card / UI:** YouTube Music gets its own music slide, with its hours marked "≈". The YouTube slide counts only videos. The card can take its #1 artist from YouTube Music (hidden by default), and the legend fits five sources. It has its own colour (`#ff8ad8`, at least ΔE 42 from every other source colour), a source toggle on the review screen, and the Takeout guide names it.
+- **Demo:** weekday-afternoon YouTube Music sessions with invented artists, from their own random stream. The demo's YouTube video count and time are unchanged (1,835 videos, same total ms as on `main`).
+
+### Verified (local)
+`corepack pnpm@9.15.0 verify` exited 0 on `feat/youtube-music`:
+- `tsc --noEmit` clean
+- 177/177 Vitest tests in 16 files (+10 in `tests/youtube-music.test.ts`)
+- production build: 90.32 kB JS (34.28 kB gzipped), 17.04 kB CSS, 31.12 kB worker
+- dist privacy scan: "6 files, no remote URLs or network APIs, strict CSP present". The demo's synthetic `music.youtube.com/watch?v=demo` URL was added to the scan's allowlist.
+- 73/73 browser E2E checks, now expecting the `ytmusic` slide and a five-source year-over-year comparison. Includes no sideways scroll at 320 px.
+
+`git diff --check main` is clean. Negative control: on `main`'s source the new test file fails at collection, because no `ytmusic` source exists.
+
+### Known limits
+- Only synthetic data was used, not a real YouTube Music Takeout. YouTube Music searches (`music.youtube.com/search`) are still skipped, as before.
+- `public/og.jpg` and `docs/media/demo.gif` were not re-captured, so they show the demo before YouTube Music joined it.
+- The home page heading still names "Spotify, Apple Music, YouTube and Netflix".
+- GitHub Actions cannot start (billing lock), so CI is not claimed. The branch was pushed unmerged; nothing was merged or deployed. No outreach.
