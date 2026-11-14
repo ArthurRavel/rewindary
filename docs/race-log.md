@@ -795,3 +795,33 @@ The change:
 - The exact six-file `dist` was SHA-256-identical to `gh-pages` `361ceef9b34bf99a2957fab462f751e947b333ca`. A manually triggered legacy Pages build reached `built` with no error at 2026-11-14T11:50:46Z.
 - 73/73 live E2E passed, including the `ytmusic` slide, zero external requests, empty storage and no page errors.
 - **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** No outreach.
+
+## Day 6, cycle 3 — 2026-11-14
+
+**Counts (verified at cycle start, 2026-11-14 17:56 Europe/Paris):** Rewindary 0 stars, 0 forks, 0 open issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 open issues, 0 open PRs. Not re-checked since.
+
+### Decision: make the public surfaces name YouTube Music
+After cycle 2, the README tagline, the meta description and `package.json` named five sources. But the app's own start-page heading, the README demo GIF (the first thing a visitor sees) and the link-preview image `public/og.jpg` still showed the four-source product. They contradicted the line above them. No higher-value bounded task was open, so this cycle fixed that inconsistency.
+
+- **`src/ui/Home.tsx`:** the heading reads "Spotify, Apple Music, YouTube Music, YouTube and Netflix". `Apple&nbsp;Music` and `YouTube&nbsp;Music` stay on one line. Without them, a 320 px screen split the heading into "Apple / Music, YouTube / Music", which read as separate items.
+- **`scripts/og-image.mjs`:** the preview legend adds YouTube Music in its app colour (`#ff8ad8`), in product order. Its two 40 px gaps went to 30 px, because the extra legend row had pushed the left column to about 30 px from the image's edges.
+- **`scripts/e2e.mjs` (`--shots` only):** the frames folder is cleared first, so the new slide's renumbering can't mix stale frames into the GIF. Each frame now waits for finite entrance animations to finish (the progress-bar fill is excluded). Before this, 6 of 19 frames differed between two captures of the same build, because rows were caught mid-rise.
+- **`tests/public-sources.test.ts` (new):** the heading, meta description, package description and README tagline must name every source in `SOURCE_ORDER` (Google Search aside). The OG legend must match `SOURCE_LABEL`/`SOURCE_COLOR`. Negative control: both tests fail with `main`'s `Home.tsx` and `og-image.mjs`.
+- **Regenerated with the project scripts:** `public/og.jpg` (1200×630, 98 KB), `docs/media/demo.gif` (15 frames, 400×760, 296 KB, now including the YouTube Music slide and the five-source comparison), and `share-card-review.png` and `share-square.png` (cards now with five sources). `review-upload.png` was restored: no document uses it, and its only change was a focus ring.
+
+### Verified (local, `fix/youtube-music-public-surfaces`)
+- **Determinism:** `pnpm og-image` twice gave the same SHA-256 (`4f27ed13…`). Two `e2e.mjs --shots` captures gave 0 of 19 differing frames. Two full `pnpm demo-gif` runs gave the same GIF SHA-256 (`99c11b2c…`).
+- **Hero layout** (first visible line of the drop zone, old wording → new): 320×640 557 → 626 px, 360×740 and 375×667 494 → 529 px, 390×844 432 → 467 px, 768×1024 395 → 445 px, 1440×900 unchanged at 485 px. No sideways scroll at any width.
+- **`corepack pnpm@9.15.0 verify` exited 0:**
+  - `tsc --noEmit` clean
+  - 179/179 Vitest tests in 17 files (+2)
+  - production build: 90.34 kB JS (34.28 kB gzipped), 17.04 kB CSS, 31.12 kB worker
+  - "Privacy scan passed: 6 files, no remote URLs or network APIs, strict CSP present."
+  - 73/73 E2E checks
+- `git diff --check origin/main` clean.
+- Rendered results were inspected: the OG image, the home frame at 320/400/1440 px, the `ytmusic`, `change` and `spotify` frames, and the share-card screenshot.
+
+### Known limits
+- On a 320×640 screen the drop zone now starts at the fold (626 of 640 px), and the heading wraps to 8 lines. The type scale was kept on purpose. From 360 px up, the drop zone stays well above the fold.
+- The GitHub repository description is a repository setting, so it was not touched. If it still lists four services, it needs a manual edit.
+- Not merged, deployed or opened as a PR: this shell has no GitHub API credential. The live site and `gh-pages` still serve the old heading until Hermes merges and deploys. Headless Chromium only. **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** No outreach.
