@@ -824,4 +824,12 @@ After cycle 2, the README tagline, the meta description and `package.json` named
 ### Known limits
 - On a 320×640 screen the drop zone now starts at the fold (626 of 640 px), and the heading wraps to 8 lines. The type scale was kept on purpose. From 360 px up, the drop zone stays well above the fold.
 - The GitHub repository description is a repository setting, so it was not touched. If it still lists four services, it needs a manual edit.
-- Not merged, deployed or opened as a PR: this shell has no GitHub API credential. The live site and `gh-pages` still serve the old heading until Hermes merges and deploys. Headless Chromium only. **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** No outreach.
+- Headless Chromium only.
+
+### Merge, verify, deploy
+- PR #8 merged as `main` `7c4c61c` at 2026-11-14T17:10:48Z.
+- Independent gate on the merged tree: TypeScript clean, 179/179 tests, production build (90.34 kB JS / 34.28 kB gzipped, 17.04 kB CSS, 31.12 kB worker), strict six-file privacy scan, 73/73 local E2E.
+- The exact six-file `dist` matched `gh-pages` `2fe1b24491ce178d9e328dec12bbec502e9f244d` byte-for-byte. An explicit legacy Pages build for that commit reached `built` with no error at 2026-11-14T17:12:18Z.
+- 73/73 live E2E passed, with zero external requests, empty storage and no page errors.
+- **Counts (fresh, 2026-11-14 18:12 Europe/Paris):** Rewindary 0 stars, 0 forks, 0 issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 issues, 0 open PRs.
+- **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** No outreach.
