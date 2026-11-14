@@ -833,3 +833,31 @@ After cycle 2, the README tagline, the meta description and `package.json` named
 - 73/73 live E2E passed, with zero external requests, empty storage and no page errors.
 - **Counts (fresh, 2026-11-14 18:12 Europe/Paris):** Rewindary 0 stars, 0 forks, 0 issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 issues, 0 open PRs.
 - **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** No outreach.
+
+## Day 6, cycle 4 — 2026-11-14
+
+**Counts (fresh, 2026-11-14 23:20 Europe/Paris):** Rewindary 0 stars, 0 forks, 0 issues, 0 open PRs · Abo Killer 0 stars, 0 forks.
+
+### Decision: a touch hold that drifts no longer resumes the story
+Earlier cycles left one limit open: press-and-hold pauses the story, but a touch browser that takes over the touch fires `pointercancel`, which the story treats as letting go. This was reproduced in headless Chromium with touch emulation: a hold that drifted about 48 px was cancelled after 180 ms. The story then resumed and moved to the next slide while the finger was still down. A real finger rarely stays perfectly still, so this hits the core mobile story interaction.
+
+- **`src/styles.css`:** the tap zones get `touch-action: pinch-zoom`. The story is a fixed, `overflow: hidden` frame, so a pan there has nothing to scroll. It only handed the touch to the browser. Pinch-zoom stays allowed for readability.
+- **`scripts/e2e.mjs`:** a new check in a touch context on a fake clock, with touches sent through the DevTools protocol. A hold that drifts about 50 px over 10 s of story time keeps the slide, gets no `pointercancel`, and lifting stays put. A quick touch tap afterwards still moves on.
+- **`README.md`:** the story and E2E descriptions mention the drift case. The unit-test count was stale (177 in 16 files) and now reads 179 in 17 files.
+
+### Verified (local, `fix/story-hold-touch-drift`)
+- **Negative control:** with `main`'s `src/styles.css` and the final E2E, the new check fails: "total → total → change, 1 cancelled". It passes with the fix: "intro → intro → total, 0 cancelled".
+- **`corepack pnpm@9.15.0 verify` exited 0:**
+  - `tsc --noEmit` clean
+  - 179/179 Vitest tests in 17 files
+  - production build: 90.34 kB JS (34.28 kB gzipped), 17.06 kB CSS (4.90 kB gzipped), 31.12 kB worker
+  - "Privacy scan passed: 6 files, no remote URLs or network APIs, strict CSP present."
+  - 74/74 E2E checks (+1)
+- `git diff --check main` clean.
+
+### Failures and notes
+- **Gate flake, not related to this change:** the first `verify` failed one existing unit test ("thousands of tiny photo sidecars"), which timed out at 5 s while the load average was 6.86. Alone, it passed in 486 ms. The next two full runs passed it.
+- **First E2E version too synthetic:** the drift ran in a few real milliseconds under the fake clock, so Chromium read it as a fling and swallowed the next tap. The check now keeps the finger down for 400 ms of real time as well, as a real hold does.
+- **Review against `main` (revue-changement grid):** no blocking or important finding. Minor, accepted: with the fix, a tap that comes within about 150 ms of a flick lasting only a few milliseconds is swallowed (measured in headless Chromium; at 150 ms and 400 ms the tap moves on). No human gesture is that fast. A two-finger pinch still cancels the first finger's hold and resumes the story, which is expected while zooming.
+- **Not checked:** real Android Chrome and iOS Safari devices (emulated touch in headless Chromium only). A long press with no drift was already fine in the emulation, so no `contextmenu` handling was added.
+- **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** Not merged and not deployed by this run: Hermes opens, reviews and merges the PR, then deploys. No outreach.

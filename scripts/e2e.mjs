@@ -212,6 +212,37 @@ check(whileHeld === 'change' && afterHold === 'change' && afterTap === 'clock' &
   `holding a tap zone pauses and letting go stays put; a quick tap and Enter still move on (${whileHeld} → ${afterHold} → ${afterTap} → ${afterKey})`);
 await timedCtx.close();
 
+// A finger rarely stays still: a hold that drifts must not be taken over by the browser as a pan (which
+// cancels the press and resumes the story under the finger). Touches go through the DevTools protocol.
+const touchCtx = await browser.newContext({ viewport: { width: 400, height: 760 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+const touch = await touchCtx.newPage();
+touch.on('request', (r) => { if (!r.url().startsWith(app) && !/^(blob|data):/.test(r.url())) external.push(r.url()); });
+touch.on('pageerror', (e) => errors.push(String(e)));
+await touch.clock.install({ time: t0 });
+await touch.goto(app);
+await touch.clock.pauseAt(t0 + 60_000);
+await touch.getByTestId('demo').click();
+await touch.getByTestId('play').click();
+await touch.evaluate(() => { window.__cancels = 0; addEventListener('pointercancel', () => window.__cancels++, true); });
+const touchSlide = () => touch.locator('.story').getAttribute('data-slide');
+const touchCdp = await touchCtx.newCDPSession(touch);
+const zone = await touch.locator('.tap.next').boundingBox();
+const tx = zone.x + zone.width / 2, ty = zone.y + zone.height / 3;
+await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tx, y: ty }] });
+for (let k = 1; k <= 8; k++) await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: tx + k * 2, y: ty + k * 6 }] });
+await touch.clock.runFor(10_000);
+// Real time too: a drift lasting a few real milliseconds reads to Chromium as a fling, which swallows the next tap.
+await touch.waitForTimeout(400);
+const whileDrifting = await touchSlide();
+await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+const afterDrift = await touchSlide();
+const cancels = await touch.evaluate(() => window.__cancels);
+await touch.touchscreen.tap(tx, ty);
+const afterTouchTap = await touchSlide();
+check(whileDrifting === 'intro' && afterDrift === 'intro' && cancels === 0 && afterTouchTap === 'total',
+  `a touch hold that drifts 50 px keeps the story paused and lifting stays put; a quick touch tap still moves on (${whileDrifting} → ${afterDrift} → ${afterTouchTap}, ${cancels} cancelled)`);
+await touchCtx.close();
+
 console.log('Export reminder');
 // Exports take days: the start page offers a calendar file to come back. It is built in the page and downloaded, nothing is sent.
 await page.setViewportSize({ width: 400, height: 760 });
