@@ -120,7 +120,7 @@ describe('synthetic demo dataset (through the real parsers)', () => {
   const ins = computeInsights(demo.events, 2025);
   it('produces a full, varied year', () => {
     expect(demo.reports.map((r) => r.source).sort()).toEqual(['applemusic', 'netflix', 'spotify', 'youtube', 'youtube']);
-    expect(ins.sources.map((s) => s.source)).toEqual(['spotify', 'applemusic', 'youtube', 'netflix']);
+    expect(ins.sources.map((s) => s.source)).toEqual(['spotify', 'applemusic', 'ytmusic', 'youtube', 'netflix']);
     // Apple Music is a smaller second music service with its own invented artists.
     const am = ins.sources.find((s) => s.source === 'applemusic')!;
     expect(am.ms).toBeGreaterThan(50 * H);
@@ -137,13 +137,13 @@ describe('synthetic demo dataset (through the real parsers)', () => {
     expect(defaultYear(demo.events)).toBe(2025);
     const vs = ins.vsLastYear!;
     expect(vs.prevYear).toBe(2024);
-    expect(vs.sources.map((s) => s.source)).toEqual(['spotify', 'applemusic', 'youtube', 'netflix']);
+    expect(vs.sources.map((s) => s.source)).toEqual(['spotify', 'applemusic', 'ytmusic', 'youtube', 'netflix']);
     // Both years stop where the stalest source does (a late-December day, not Dec 31).
     expect(vs.through?.month).toBe(11);
     expect(vs.ms).toBeLessThanOrEqual(ins.totalMs);
     expect(vs.ms).toBeGreaterThan(ins.totalMs * 0.95);
     expect(vs.ms / vs.prevMs).toBeGreaterThan(1.1);
-    expect(vs.estimated).toBe(true); // YouTube durations
+    expect(vs.estimated).toBe(true); // YouTube and YouTube Music durations
     expect(computeInsights(demo.events, 2024).vsLastYear).toBeNull();
   });
   it('runs its Apple Music export through the real play-activity parser', () => {

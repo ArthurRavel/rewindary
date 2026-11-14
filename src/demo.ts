@@ -25,6 +25,7 @@ const THINGS = ['vintage radio', 'tiny house', 'mechanical keyboard', 'sourdough
 const SHOWS: [string, number][] = [['The Lighthouse Accord', 2], ['Harbor Lights', 1], ['Copper Valley', 3], ['Ninth Garden', 1], ['Static Season', 2], ['The Long Ferry', 1]];
 const FILMS = ['A Map of Rain', 'Midnight Ferry', 'The Quiet Orbit', 'Paper Crowns'];
 const APPLE_ARTISTS = ['Marrow Coast', 'Opal Freight', 'The Glasshouse Tenants', 'Fernlight Assembly', 'Copper Moth', 'Lumen Avenue'];
+const YT_MUSIC_ARTISTS = ['Sunday Cartographers', 'Mona Driftwood', 'Tin Lantern Club', 'Okra & Ash', 'Pale Harbour Radio'];
 const APPLE_HEADER = ['Apple ID Number', 'Artist Name', 'Client IP Address', 'Device Identifier', 'End Reason Type', 'Event End Timestamp', 'Event Start Timestamp', 'Event Type', 'Media Duration In Milliseconds', 'Play Duration Milliseconds', 'Song Name', 'Store Front Name'];
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -128,6 +129,7 @@ export function demoFiles(year = 2025, seed = 7): DemoFile[] {
   // so the main year's numbers stay exactly as they were.
   simulateYear(year - 1, 0.8);
   const apple = appleMusic(year, seed);
+  watch.push(...youtubeMusic(year, seed));
   // Takeout lists activity newest first.
   const newestFirst = (a: Activity, b: Activity) => b.time.localeCompare(a.time);
   watch.sort(newestFirst);
@@ -141,6 +143,42 @@ export function demoFiles(year = 2025, seed = 7): DemoFile[] {
     { name: 'netflix-report/CONTENT_INTERACTION/ViewingActivity.csv', text: csv + '\n' },
     { name: 'Apple_Media_Services/Apple Music Activity/Apple Music Play Activity.csv', text: apple },
   ];
+}
+
+/**
+ * YouTube Music in the afternoon, on weekdays, over both demo years. It goes into the same watch
+ * history as the videos, like a real Takeout, and has its own random stream so the other exports stay
+ * exactly as they were. Sessions end well before the evening videos, so their estimates are unchanged.
+ */
+function youtubeMusic(year: number, seed: number): (Record<string, unknown> & { time: string })[] {
+  const r = rng(seed ^ 0x7e5a1c);
+  const pick = <T,>(xs: T[]) => xs[Math.floor(r() * xs.length)];
+  const zipf = <T,>(xs: T[]) => xs[Math.min(xs.length - 1, Math.floor(xs.length * Math.pow(r(), 2)))];
+  const songs = YT_MUSIC_ARTISTS.map((a) => Array.from({ length: 8 }, () => `${pick(WORDS)} ${pick(WORDS)}`).map((s) => [a, s] as const));
+  const out: (Record<string, unknown> & { time: string })[] = [];
+  for (const y of [year - 1, year]) {
+    for (let d = new Date(y, 0, 1); d.getFullYear() === y; d = new Date(y, d.getMonth(), d.getDate() + 1)) {
+      const m = d.getMonth();
+      if (m === 7 && d.getDate() >= 9 && d.getDate() <= 17) continue; // the same offline summer week
+      const weekend = d.getDay() === 0 || d.getDay() === 6;
+      if (weekend || r() > (y === year ? 0.3 : 0.2)) continue;
+      let t = new Date(y, m, d.getDate(), 15, Math.floor(r() * 30)).getTime();
+      const end = t + (30 + r() * 40) * 60_000;
+      while (t < end) {
+        const [artist, song] = pick(zipf(songs));
+        out.push({
+          header: 'YouTube Music',
+          title: `Watched ${song}`,
+          titleUrl: `https://music.youtube.com/watch?v=demoM${out.length}`,
+          subtitles: [{ name: `${artist} - Topic`, url: 'https://www.youtube.com/channel/demo' }],
+          time: new Date(t).toISOString(),
+          products: ['YouTube'],
+        });
+        t += (150 + Math.floor(r() * 110)) * 1000;
+      }
+    }
+  }
+  return out;
 }
 
 /**

@@ -43,8 +43,8 @@ describe('Spotify account data', () => {
 describe('Google Takeout JSON', () => {
   const w = parse('google/watch-history.json');
   it('classifies videos, music and removed videos; skips ads and visits', () => {
-    expect(w.events.map((e) => [e.kind, e.group])).toEqual([
-      ['video', 'Bench Lab Builds'], ['video', 'Atlas of Small Things'], ['video', ''], ['music', 'Velvet Static'],
+    expect(w.events.map((e) => [e.source, e.kind, e.group])).toEqual([
+      ['youtube', 'video', 'Bench Lab Builds'], ['youtube', 'video', 'Atlas of Small Things'], ['youtube', 'video', ''], ['ytmusic', 'music', 'Velvet Static'],
     ]);
     expect(w.events[0].title).toBe('Restoring a vintage radio');
     expect(w.report.skipped).toBe(2);

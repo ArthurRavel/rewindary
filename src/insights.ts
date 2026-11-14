@@ -1,5 +1,5 @@
 import type { LifeEvent, SourceId } from './model';
-import { MUSIC_SOURCES, SOURCE_ORDER } from './model';
+import { MUSIC_SOURCES, SOURCE_ORDER, WATCH_HISTORY_SOURCES } from './model';
 
 export interface Ranked { name: string; ms: number; count: number }
 
@@ -208,8 +208,8 @@ export function overlap(a: [number, number][], b: [number, number][]): number {
 
 export function persona(shares: Partial<Record<SourceId, number>>, nightShare: number, weekendShare: number, morningShare: number): Persona {
   const s = (k: SourceId) => shares[k] ?? 0;
-  // Spotify and Apple Music are one lane here: someone who uses both is still a music person.
-  const lanes: Record<'music' | 'youtube' | 'netflix', number> = { music: s('spotify') + s('applemusic'), youtube: s('youtube'), netflix: s('netflix') };
+  // The music services are one lane here: someone who uses several is still a music person.
+  const lanes: Record<'music' | 'youtube' | 'netflix', number> = { music: s('spotify') + s('applemusic') + s('ytmusic'), youtube: s('youtube'), netflix: s('netflix') };
   const top = (Object.keys(lanes) as (keyof typeof lanes)[]).sort((a, b) => lanes[b] - lanes[a])[0];
   const nouns: Record<string, [string, string]> = {
     music: ['Soundtracker', 'Your year had a soundtrack — and you were always pressing play.'],
@@ -279,7 +279,7 @@ export function computeInsights(all: LifeEvent[], year: number | null): Insights
 
   const sources: SourceSummary[] = SOURCE_ORDER.filter((k) => tops.has(k)).map((k) => {
     const s = tops.get(k)!;
-    const by = k === 'youtube' ? 'count' : 'ms';
+    const by = WATCH_HISTORY_SOURCES.has(k) ? 'count' : 'ms';
     return { source: k, events: s.n, ms: s.ms, estShare: s.ms ? s.est / s.ms : 0, searches: s.searches, top: rank(s.groups, 5, by), topTitles: rank(s.titles, 5, MUSIC_SOURCES.has(k) ? 'count' : by), podcasts: rank(s.shows, 3, 'ms') };
   });
 
@@ -309,7 +309,7 @@ export function computeInsights(all: LifeEvent[], year: number | null): Insights
   }
 
   const isVideo = (e: LifeEvent) => (e.source === 'youtube' && e.kind === 'video') || e.source === 'netflix';
-  const audio = events.filter((e) => MUSIC_SOURCES.has(e.source) || (e.source === 'youtube' && e.kind === 'music'));
+  const audio = events.filter((e) => MUSIC_SOURCES.has(e.source));
   const video = events.filter((e) => isVideo(e) && !e.noTime);
 
   const shares: Partial<Record<SourceId, number>> = {};
@@ -339,7 +339,8 @@ export function computeInsights(all: LifeEvent[], year: number | null): Insights
     longestBreak,
     binge: longestSession(events.filter((e) => e.source === 'netflix' && e.kind === 'episode' && !e.noTime), 20 * 60_000, true),
     rabbitHole: longestSession(events.filter((e) => e.source === 'youtube' && e.kind === 'video'), 5 * 60_000, false),
-    marathon: longestSession(events.filter((e) => MUSIC_SOURCES.has(e.source) && e.kind === 'music'), 10 * 60_000, false),
+    // "Without a break" needs real play times, so estimated YouTube Music durations stay out of the run.
+    marathon: longestSession(events.filter((e) => MUSIC_SOURCES.has(e.source) && e.kind === 'music' && !e.est), 10 * 60_000, false),
     overlapMs: overlap(union(audio), union(video)),
     persona: persona(shares, nightShare, weekendShare, timedMs ? morningMs / timedMs : 0),
     vsLastYear: year === null ? null : compareYears(all, year),

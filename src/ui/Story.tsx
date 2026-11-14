@@ -76,6 +76,7 @@ export function buildSlides(ins: Insights): Slide[] {
   const by = (s: SourceId) => ins.sources.find((x) => x.source === s);
   const sp = by('spotify');
   const am = by('applemusic');
+  const ym = by('ytmusic');
   const yt = by('youtube');
   const nf = by('netflix');
   const gs = by('google');
@@ -164,9 +165,9 @@ export function buildSlides(ins: Insights): Slide[] {
       </>),
     });
   }
-  // The listening run is computed across both music services, so it is told once, on the first music slide.
+  // The listening run is computed across the music services, so it is told once, on the first music slide.
   let runTold = false;
-  for (const m of [sp, am]) {
+  for (const m of [sp, am, ym]) {
     if (!m || m.ms <= 0) continue;
     // Some Apple Music exports have no artist names: rank the songs instead. Podcasts are never
     // ranked with the music; they get their own line, or the list when nothing else was played.
@@ -179,7 +180,8 @@ export function buildSlides(ins: Insights): Slide[] {
       id: m.source, tone: m.source,
       body: (<>
         <p class="kicker rise">{SOURCE_LABEL[m.source]}</p>
-        <h2 class="big rise" style="animation-delay:150ms">{hours(m.ms)} hours of sound</h2>
+        {/* YouTube Music time is estimated from the gaps between plays, so it reads as approximate. */}
+        <h2 class="big rise" style="animation-delay:150ms">{m.estShare > 0.5 ? '≈' : ''}{hours(m.ms)} hours of sound</h2>
         {ranked.length > 0
           ? <Top items={ranked.map((t) => ({ name: t.name, value: num(t.count) }))} unit=" plays" />
           : <Top items={m.podcasts.map((t) => ({ name: t.name, value: duration(t.ms) }))} />}
