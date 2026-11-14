@@ -75,7 +75,7 @@ Exports come straight from each service and some take days, so request them firs
 1. Open takeout.google.com and click **Deselect all**.
 2. Tick **YouTube and YouTube Music** → "All YouTube data included" → keep only **history**.
 3. Optional: tick **My Activity** and keep only **Search** to add your search rhythm. Only the timestamps are used.
-4. Pick JSON under "Multiple formats" if you can. HTML works too: dates in English, French, German, Spanish, Italian and Portuguese formats are parsed.
+4. Pick JSON under "Multiple formats" if you can. HTML (Takeout's default) works too: its dates are written in your account's language, and Rewindary reads the standard (ICU) date formats of most European languages (including German and Portuguese numeric dates, Russian, Ukrainian, Polish, Turkish and Greek), Japanese, Korean, Chinese, Indonesian, Vietnamese and Arabic. Dates it cannot read (for example Hebrew, Hindi or Thai) are counted on the review screen with a suggestion to re-export as JSON, never guessed.
 5. Drop the `.zip`. If you picked `.tgz` as the file type, drop that instead: it is unpacked in the browser by the same rules, and a part that was cut short gets a note instead of failing the other files.
 
 **Netflix: viewing activity**
@@ -120,13 +120,14 @@ pnpm og-image         # re-capture public/og.jpg, the link-preview image, from t
 
 What `verify` runs, exactly:
 - `tsc --noEmit`: strict TypeScript.
-- `node scripts/run-tests.mjs`: 137 Vitest tests in 14 files, run in UTC.
+- `node scripts/run-tests.mjs`: 167 Vitest tests in 15 files, run in UTC.
   - Parsers: every format, including edge cases (skips, incognito, ads, trailers, removed videos, localized HTML dates, CSV quoting).
   - Ingest: streamed zips, unrelated entries skipped, de-duplication, Spotify source preference, the full Netflix activity over the quick CSV for the dates it covers (later quick rows kept), YouTube duration estimates, exports added later merged like one drop.
   - Insights: podcasts ranked apart from artists and songs (and kept off the card's #1 artist), streaks, breaks, busiest day, binges, overlap, persona, default year, year-over-year comparison (same-date windows, coverage, stale exports, Feb 29), the deterministic synthetic years across all four services.
   - Redaction: all card formats and themes, review lines equal card lines, XML escaping, the footer (once per card, the only address on it, and it fits).
   - Privacy receipt: same-origin vs external hosts, blocked attempts by host only, stored items.
   - Localized Takeouts: history under French, German and Spanish file names, the content check that decides what is kept (and that photo sidecars, bookmarks and Maps activity are not), thousands of tiny entries in one archive, stored (uncompressed) entries, and an entry with a compression method it cannot read.
+  - Takeout HTML dates: the date formats of 25 locales (as ICU writes them, pinned in the test), German numeric dates through the HTML parser with no undated entries, day-first vs month-first numeric dates decided once per file, AM/PM markers in Latin, Greek, Korean, Chinese and Arabic forms, and impossible or unreadable dates (31 February, hour 25, Hebrew months, Buddhist-era and Persian-calendar years) rejected rather than guessed.
   - Unzipped folders: a Takeout folder gives the same events as its zip, photos and sidecars are never opened, unreadable peeked files are skipped, one note per folder without history, zips inside a folder, the batched directory walk.
   - Takeout as `.tgz` (or `.tar.gz`, `.tar`): the same events and report as the same Takeout zipped, long paths (ustar prefix, GNU long names, pax), any chunk size, a part with no history, a cut-short or mislabelled archive explained without failing the rest of the drop, and an unsupported loose file explained by name without being read.
   - Unrecognised files: Takeout with YouTube data but no history (and split parts), Takeout of other products, Spotify and Netflix exports without history, unsupported archives, history-named files that don't parse.

@@ -1,5 +1,5 @@
 import type { LifeEvent, ParseReport } from '../model';
-import { decodeEntities, parseLooseDate, stripTags } from './text';
+import { decodeEntities, numericDateOrder, parseLooseDate, stripTags } from './text';
 
 /**
  * Google Takeout adapter: YouTube watch/search history and My Activity (JSON or HTML).
@@ -65,25 +65,27 @@ function fromRows(rows: ActivityRow[]): Raw[] {
 
 /** Parse Takeout's HTML layout without a DOM so it also runs in Web Workers. */
 export function htmlToRows(html: string): Raw[] {
-  const out: Raw[] = [];
+  const out: (Raw & { dateText: string })[] = [];
   const blocks = html.split(/<div class="outer-cell/).slice(1);
   for (const block of blocks) {
     const header = stripTags(block.match(/<p class="mdl-typography--title">([\s\S]*?)<\/p>/)?.[1] ?? '');
     const content = block.match(/<div class="content-cell[^"]*mdl-typography--body-1">([\s\S]*?)<\/div>/)?.[1] ?? '';
     const links = [...content.matchAll(/<a href="([^"]*)">([\s\S]*?)<\/a>/g)];
     const segments = content.split(/<br\s*\/?>/i).map(stripTags).filter(Boolean);
-    const dateText = segments[segments.length - 1] ?? '';
     out.push({
       header,
       // "Watched <title>" for watches; for searches the text is dropped later anyway.
       title: links[0] ? 'Watched ' + stripTags(links[0][2]) : (segments[0] ?? ''),
       url: links[0] ? decodeEntities(links[0][1]) : '',
       channel: links[1] ? stripTags(links[1][2]) : '',
-      t: parseLooseDate(dateText),
+      t: null,
       ad: /From Google Ads|Google Ads/i.test(block),
+      dateText: segments[segments.length - 1] ?? '',
     });
   }
-  return out;
+  // Whether "07/03/2025" is 7 March or 3 July is decided once for the whole file, from every date in it.
+  const order = numericDateOrder(out.map((r) => r.dateText));
+  return out.map(({ dateText, ...r }) => ({ ...r, t: parseLooseDate(dateText, order) }));
 }
 
 /** YouTube watch history has no durations. Estimate from the gap to the next watch (1–15 min, default 8). */
