@@ -860,4 +860,11 @@ Earlier cycles left one limit open: press-and-hold pauses the story, but a touch
 - **First E2E version too synthetic:** the drift ran in a few real milliseconds under the fake clock, so Chromium read it as a fling and swallowed the next tap. The check now keeps the finger down for 400 ms of real time as well, as a real hold does.
 - **Review against `main` (revue-changement grid):** no blocking or important finding. Minor, accepted: with the fix, a tap that comes within about 150 ms of a flick lasting only a few milliseconds is swallowed (measured in headless Chromium; at 150 ms and 400 ms the tap moves on). No human gesture is that fast. A two-finger pinch still cancels the first finger's hold and resumes the story, which is expected while zooming.
 - **Not checked:** real Android Chrome and iOS Safari devices (emulated touch in headless Chromium only). A long press with no drift was already fine in the emulation, so no `contextmenu` handling was added.
-- **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** Not merged and not deployed by this run: Hermes opens, reviews and merges the PR, then deploys. No outreach.
+- **GitHub Actions remain unavailable (billing lock), so CI is not claimed.** No outreach.
+
+### Deployed
+- Product PR #11 was merged into `main` at 2026-11-14 23:31 Europe/Paris as `0488968`.
+- The exact six-file `dist/` was deployed to `gh-pages` as `cc878ea5d260825a9c2ed3b5467120116f1dd6de`.
+- An explicitly triggered legacy Pages build reached `built` with no error at 2026-11-14T22:32:36Z.
+- The SHA-256 of all six live files matched the local `dist/`.
+- The live E2E run passed 74/74 checks, including the touch-drift regression, with zero external requests, empty storage and no page errors.
