@@ -36,7 +36,7 @@ export const HIDDEN = '•••••';
 export function cardLines(ins: Insights, reveal: ReadonlySet<RevealId>): CardLine[] {
   const lines: CardLine[] = [];
   const by = (s: string) => ins.sources.find((x) => x.source === s);
-  // With both Spotify and Apple Music, the #1 artist comes from the one you listened to most.
+  // With several music services, the #1 artist comes from the one you listened to most.
   const music = ins.sources.filter((s) => MUSIC_SOURCES.has(s.source) && s.top.length).sort((a, b) => b.ms - a.ms)[0];
   const netflix = by('netflix');
   const youtube = by('youtube');
@@ -65,7 +65,7 @@ const PALETTES: Record<CardTheme, Palette> = {
 const FONT = `system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif`;
 
 export function mediaPhrase(ins: Insights): string {
-  const words = ins.sources.filter((s) => s.ms > 0).map((s) => ({ spotify: 'music', applemusic: 'music', youtube: 'videos', netflix: 'shows', google: '' })[s.source]);
+  const words = ins.sources.filter((s) => s.ms > 0).map((s) => ({ spotify: 'music', applemusic: 'music', ytmusic: 'music', youtube: 'videos', netflix: 'shows', google: '' })[s.source]);
   const parts = [...new Set(words)].filter(Boolean);
   if (parts.length <= 1) return parts.length ? `of ${parts[0]}` : 'tracked';
   return `of ${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
@@ -129,7 +129,7 @@ export function renderCardSvg(ins: Insights, opts: CardOptions): string {
   o.push(`<rect x="80" y="${y}" width="${W - 160}" height="30" rx="15" fill="${p.track}"/>`);
   for (const s of seg) o.push(`<rect x="${(80 + s.x).toFixed(1)}" y="${y}" width="${s.w.toFixed(1)}" height="30" rx="15" fill="${s.color}"/>`);
   y += 76;
-  // Four media sources ("Apple Music 20%" is long) no longer fit one row at full size, so the legend scales down to fit.
+  // Four or five media sources ("Apple Music 20%" is long) no longer fit one row at full size, so the legend scales down to fit.
   const legend = seg.map((s) => ({ s, label: `${SOURCE_LABEL[s.source]} ${Math.round(s.share * 100)}%` }));
   const k = Math.min(1, (W - 160) / legend.reduce((n, l) => n + 32 + l.label.length * 18 + 36, -36));
   let lx = 80;

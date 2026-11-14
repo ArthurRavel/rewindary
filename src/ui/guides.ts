@@ -32,7 +32,7 @@ export const GUIDES: Guide[] = [
   },
   {
     source: 'youtube',
-    title: 'YouTube & Google Search — Google Takeout',
+    title: 'YouTube, YouTube Music & Google Search — Google Takeout',
     wait: 'Usually minutes to a few hours.',
     steps: [
       'Open takeout.google.com and click “Deselect all”.',
@@ -42,7 +42,7 @@ export const GUIDES: Guide[] = [
       'Create the export, download the .zip and drop it here.',
     ],
     file: 'watch-history.json / .html, search-history, My Activity',
-    note: 'Search terms and URLs are discarded while parsing — Rewindary only keeps the time of each search. Watch history has no durations, so YouTube time is estimated from the gaps between videos.',
+    note: 'Search terms and URLs are discarded while parsing — Rewindary only keeps the time of each search. Watch history has no durations, so YouTube and YouTube Music time is estimated from the gaps between plays. YouTube Music plays get their own music slide, apart from your videos.',
   },
   {
     source: 'netflix',

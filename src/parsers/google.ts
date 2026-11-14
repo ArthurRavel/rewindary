@@ -1,4 +1,5 @@
 import type { LifeEvent, ParseReport } from '../model';
+import { WATCH_HISTORY_SOURCES } from '../model';
 import { decodeEntities, numericDateOrder, parseLooseDate, stripTags } from './text';
 
 /**
@@ -41,10 +42,13 @@ function classify(raw: Raw): LifeEvent | 'skip' {
     return { source: isYouTube ? 'youtube' : 'google', kind: 'search', t: raw.t, ms: 0, est: false, title: '', group: '' };
   }
   if (isYouTube && (/\/watch\?|youtu\.be\/|\/shorts\//.test(url) || (!url && /removed|supprimée|entfernt|eliminado|private|privée/i.test(raw.title)))) {
+    // Plays in the YouTube Music app are listening, so they become their own music source.
     const music = header.includes('music') || YT_MUSIC.test(url);
     const title = url ? raw.title.replace(WATCH_PREFIX, '') : '';
     const group = raw.channel.replace(/\s+-\s+Topic$/, '');
-    return { source: 'youtube', kind: music ? 'music' : 'video', t: raw.t, ms: 0, est: true, title, group };
+    return music
+      ? { source: 'ytmusic', kind: 'music', t: raw.t, ms: 0, est: true, title, group }
+      : { source: 'youtube', kind: 'video', t: raw.t, ms: 0, est: true, title, group };
   }
   return 'skip'; // visited pages, app usage, etc.
 }
@@ -88,9 +92,12 @@ export function htmlToRows(html: string): Raw[] {
   return out.map(({ dateText, ...r }) => ({ ...r, t: parseLooseDate(dateText, order) }));
 }
 
-/** YouTube watch history has no durations. Estimate from the gap to the next watch (1–15 min, default 8). */
+/**
+ * YouTube watch history has no durations. Estimate from the gap to the next watch (1–15 min, default 8).
+ * Videos and YouTube Music plays share one timeline, as they do in the history file.
+ */
 export function estimateYouTubeDurations(events: LifeEvent[]): void {
-  const vids = events.filter((e) => e.source === 'youtube' && e.kind !== 'search').sort((a, b) => a.t - b.t);
+  const vids = events.filter((e) => WATCH_HISTORY_SOURCES.has(e.source) && e.kind !== 'search').sort((a, b) => a.t - b.t);
   for (let i = 0; i < vids.length; i++) {
     const next = vids[i + 1];
     const gap = next ? next.t - vids[i].t : Infinity;
@@ -113,7 +120,7 @@ export function parseGoogleActivity(input: ActivityRow[] | string, file: string)
   }
   const warnings: string[] = [];
   if (html && undated > 0) warnings.push(`${undated} entries had a date format we could not read. Re-export as JSON for best results.`);
-  const yt = events.some((e) => e.source === 'youtube');
+  const yt = events.some((e) => WATCH_HISTORY_SOURCES.has(e.source));
   return {
     events,
     report: {

@@ -11,7 +11,7 @@ const problems = [];
 // the one link to the source code (src/site.ts), which is only followed if the visitor clicks it, and the
 // app's own address and preview image in the link-preview tags, which only link unfurlers read.
 const APP_URL = 'https://arthurravel.github.io/rewindary/';
-const ALLOWED_URL = /^https?:\/\/(www\.w3\.org\/|www\.youtube\.com\/(watch\?v=demo|channel\/demo|results\?search_query=demo))|^https:\/\/github\.com\/ArthurRavel\/rewindary$/;
+const ALLOWED_URL = /^https?:\/\/(www\.w3\.org\/|www\.youtube\.com\/(watch\?v=demo|channel\/demo|results\?search_query=demo)|music\.youtube\.com\/watch\?v=demo)|^https:\/\/github\.com\/ArthurRavel\/rewindary$/;
 const PREVIEW_URL = /^https:\/\/arthurravel\.github\.io\/rewindary\/(og\.jpg)?$/; // index.html only
 const NETWORK = [/\bfetch\s*\(/, /XMLHttpRequest/, /sendBeacon/, /new WebSocket/, /EventSource/, /RTCPeerConnection/, /importScripts/, /serviceWorker\.register/];
 

@@ -1,6 +1,6 @@
 :root {
   --bg: #0d0a1a; --bg2: #171127; --card: #1d1631; --fg: #f7f3ff; --dim: #b3a9cc; --line: #ffffff1a;
-  --spotify: #3ddc97; --applemusic: #5cc8ff; --youtube: #ff6b6b; --netflix: #ffb547; --google: #9b8cff; --accent: #c89bff;
+  --spotify: #3ddc97; --applemusic: #5cc8ff; --ytmusic: #ff8ad8; --youtube: #ff6b6b; --netflix: #ffb547; --google: #9b8cff; --accent: #c89bff;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   color-scheme: dark;
@@ -41,7 +41,7 @@ button:focus-visible, a:focus-visible, .button:focus-within, .drop:focus-within,
 .grad { background: linear-gradient(90deg, var(--spotify), var(--netflix) 50%, var(--youtube)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .error { color: #ffb4b4; background: #ff6b6b1f; border: 1px solid #ff6b6b55; padding: .8rem 1rem; border-radius: 12px; }
 .dot { display: inline-block; width: .75em; height: .75em; border-radius: 50%; background: #666; margin-right: .6em; flex: none; }
-.dot.spotify { background: var(--spotify); } .dot.applemusic { background: var(--applemusic); } .dot.youtube { background: var(--youtube); } .dot.netflix { background: var(--netflix); } .dot.google { background: var(--google); }
+.dot.spotify { background: var(--spotify); } .dot.applemusic { background: var(--applemusic); } .dot.ytmusic { background: var(--ytmusic); } .dot.youtube { background: var(--youtube); } .dot.netflix { background: var(--netflix); } .dot.google { background: var(--google); }
 
 /* Home */
 .home, .review-page { max-width: 760px; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
@@ -114,7 +114,7 @@ input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent
 .story { position: relative; width: min(100vw, calc(100dvh * 9 / 16), 480px); height: min(100dvh, 853px); overflow: hidden; border-radius: 0; background: var(--bg2); isolation: isolate; transition: --tone 600ms ease; }
 @media (min-width: 520px) { .story { border-radius: 28px; box-shadow: 0 30px 80px #0008; height: min(92dvh, 853px); width: min(calc(92dvh * 9 / 16), 480px); } }
 .story::before { content: ''; position: absolute; inset: -20%; z-index: -1; background: radial-gradient(60% 40% at 80% 10%, var(--tone, #c89bff) 0, transparent 70%), radial-gradient(50% 40% at 0% 100%, #ffffff10, transparent 70%); opacity: .35; }
-.tone-spotify { --tone: var(--spotify); } .tone-applemusic { --tone: var(--applemusic); } .tone-youtube { --tone: var(--youtube); } .tone-netflix { --tone: var(--netflix); } .tone-google { --tone: var(--google); } .tone-mix { --tone: #c89bff; }
+.tone-spotify { --tone: var(--spotify); } .tone-applemusic { --tone: var(--applemusic); } .tone-ytmusic { --tone: var(--ytmusic); } .tone-youtube { --tone: var(--youtube); } .tone-netflix { --tone: var(--netflix); } .tone-google { --tone: var(--google); } .tone-mix { --tone: #c89bff; }
 .bars { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; gap: 4px; z-index: 3; }
 .bars span { flex: 1; height: 3px; border-radius: 3px; background: #ffffff33; overflow: hidden; }
 .bars span b { display: block; height: 100%; background: #fff; transform: scaleX(0); transform-origin: left; }

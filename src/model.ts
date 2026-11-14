@@ -5,7 +5,11 @@
  */
 import type { IgnoredFile } from './diagnose';
 
-export type SourceId = 'spotify' | 'applemusic' | 'youtube' | 'netflix' | 'google';
+/**
+ * YouTube Music plays come from the same Takeout watch history as YouTube videos, but they are
+ * listening, not watching: they get their own source so they rank, count and read as music.
+ */
+export type SourceId = 'spotify' | 'applemusic' | 'ytmusic' | 'youtube' | 'netflix' | 'google';
 
 export type EventKind =
   | 'music' // a song (Spotify, Apple Music, YouTube Music)
@@ -55,12 +59,22 @@ export interface IngestResult {
 export const SOURCE_LABEL: Record<SourceId, string> = {
   spotify: 'Spotify',
   applemusic: 'Apple Music',
+  ytmusic: 'YouTube Music',
   youtube: 'YouTube',
   netflix: 'Netflix',
   google: 'Google Search',
 };
 
-export const SOURCE_ORDER: SourceId[] = ['spotify', 'applemusic', 'youtube', 'netflix', 'google'];
+export const SOURCE_ORDER: SourceId[] = ['spotify', 'applemusic', 'ytmusic', 'youtube', 'netflix', 'google'];
 
-/** Sources whose events are songs and podcasts: plays count after 30 s, and they feed the listening run and second-screen time. */
-export const MUSIC_SOURCES: ReadonlySet<SourceId> = new Set(['spotify', 'applemusic']);
+/**
+ * Sources whose events are songs and podcasts: plays count after 30 s, artists are ranked as music,
+ * and they feed the music persona, the card's #1 artist and second-screen time.
+ */
+export const MUSIC_SOURCES: ReadonlySet<SourceId> = new Set(['spotify', 'applemusic', 'ytmusic']);
+
+/**
+ * Sources read from Takeout's watch history. It has no durations, so time is estimated from the gap
+ * to the next play on one shared timeline, and rankings go by count rather than by estimated time.
+ */
+export const WATCH_HISTORY_SOURCES: ReadonlySet<SourceId> = new Set(['youtube', 'ytmusic']);

@@ -19,7 +19,7 @@ it('adds link-preview tags that point only at the app itself', () => {
   // Copy comes from index.html, so the preview never drifts from the page's own title and description.
   expect(t['og:title']).toBe(html.match(/<title>([^<]*)<\/title>/)![1]);
   expect(t['og:description']).toBe(html.match(/<meta name="description" content="([^"]*)"/)![1]);
-  expect(t['og:description']).toMatch(/Spotify, Apple Music, YouTube and Netflix/);
+  expect(t['og:description']).toMatch(/Spotify, Apple Music, YouTube Music, YouTube and Netflix/);
   // The only absolute URLs added are the two above; everything else in the page stays relative.
   expect([...out.matchAll(/https?:\/\/[^\s"]+/g)].map((m) => m[0]).sort()).toEqual([app, `${app}og.jpg`]);
   // Each tag is a well-formed attribute (no stray quote cutting a value short) and they sit before <title>.
