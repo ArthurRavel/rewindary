@@ -28,7 +28,8 @@ try {
   if (!card.includes('•••••')) throw new Error('expected the default card, with names hidden');
 
   const favicon = readFileSync(join(ROOT, 'public/favicon.svg'), 'utf8');
-  const sources = [['Spotify', '#3ddc97'], ['Apple Music', '#5cc8ff'], ['YouTube', '#ff6b6b'], ['Netflix', '#ffb547']];
+  // Same names, colours and order as SOURCE_LABEL / SOURCE_COLOR (Google Search aside); tests/public-sources.test.ts keeps them in step.
+  const sources = [['Spotify', '#3ddc97'], ['Apple Music', '#5cc8ff'], ['YouTube Music', '#ff8ad8'], ['YouTube', '#ff6b6b'], ['Netflix', '#ffb547']];
   await page.setViewportSize({ width: 1200, height: 630 });
   await page.setContent(`<!doctype html><html><head><style>
     * { box-sizing: border-box; margin: 0; }
@@ -38,11 +39,11 @@ try {
       display: grid; grid-template-columns: 1fr 510px; gap: 56px; align-items: center; padding: 0 60px 0 72px; }
     .brand { display: flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 800; letter-spacing: -0.01em; }
     .brand img { width: 44px; height: 44px; border-radius: 10px; }
-    h1 { font-size: 62px; line-height: 1.04; letter-spacing: -0.03em; margin: 40px 0 22px; }
+    h1 { font-size: 62px; line-height: 1.04; letter-spacing: -0.03em; margin: 30px 0 22px; }
     ul { list-style: none; padding: 0; display: grid; grid-template-columns: auto auto; justify-content: start; gap: 12px 36px; font-size: 26px; font-weight: 600; }
     li { display: flex; align-items: center; gap: 10px; }
     li i { width: 16px; height: 16px; border-radius: 50%; }
-    p { margin-top: 40px; font-size: 26px; line-height: 1.35; color: #b3a9cc; }
+    p { margin-top: 30px; font-size: 26px; line-height: 1.35; color: #b3a9cc; }
     p b { color: #f7f3ff; font-weight: 600; }
     p span { color: #c89bff; }
     .card { width: 510px; height: 510px; border-radius: 28px; box-shadow: 0 24px 60px -16px #000c, 0 0 0 1px #ffffff1a; }
