@@ -14,7 +14,7 @@ export function Home({ onFiles, dragging, onDemo, status, error }: {
     <main class="home">
       <header class="hero">
         <p class="brand"><Mark />Rewindary</p>
-        <h1 tabIndex={-1} data-stage-focus>Your year, rewound —<br /><span class="grad">Spotify, Apple Music, YouTube and Netflix</span> in one story.</h1>
+        <h1 tabIndex={-1} data-stage-focus>Your year, rewound —<br /><span class="grad">Spotify, Apple&nbsp;Music, YouTube&nbsp;Music, YouTube and Netflix</span> in one story.</h1>
         <p class="lead">Drop your official data exports and get an animated year-in-review plus a share card that hides names by default. Everything is computed on this device: no upload, no account, no tracking.</p>
       </header>
       <label class={`drop${dragging ? ' drag' : ''}${status ? ' busy' : ''}`}>
