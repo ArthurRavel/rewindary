@@ -195,10 +195,11 @@ export function buildSlides(ins: Insights): Slide[] {
     id: 'youtube', tone: 'youtube',
     body: (<>
       <p class="kicker rise">YouTube</p>
-      <h2 class="big rise" style="animation-delay:150ms">{num(yt.events - yt.searches)} videos</h2>
+      {/* Searches alone (a selection with no watch history) are counted, never shown as "0 videos". */}
+      <h2 class="big rise" style="animation-delay:150ms">{yt.events > yt.searches ? `${num(yt.events - yt.searches)} videos` : `${num(yt.searches)} searches`}</h2>
       <Top items={yt.top.map((t) => ({ name: t.name, value: num(t.count) }))} unit=" videos" />
       {ins.rabbitHole && <p class="note rise" style="animation-delay:900ms">Deepest rabbit hole: <b>{ins.rabbitHole.count} videos</b> in one sitting, {dayLabel(dayNumber(ins.rabbitHole.start), true)}.</p>}
-      {yt.searches > 0 && <p class="note rise" style="animation-delay:1000ms">Plus {num(yt.searches)} searches. We kept the count and forgot the words.</p>}
+      {yt.searches > 0 && <p class="note rise" style="animation-delay:1000ms">{yt.events > yt.searches ? `Plus ${num(yt.searches)} searches. ` : ''}We kept the count and forgot the words.</p>}
     </>),
   });
   if (nf && nf.ms > 0) slides.push({
@@ -218,6 +219,9 @@ export function buildSlides(ins: Insights): Slide[] {
       <p class="lead rise" style="animation-delay:300ms">That's {num(gs.searches / Math.max(1, ins.activeDays))} a day on average. What you searched for never left the parser — Rewindary only kept the timestamps.</p>
     </>),
   });
+  // Searches have no duration: with nothing played or watched, the weekend share would read 0%, the streak would
+  // count days "with something playing", and the persona would be made up. The story then ends after the searches.
+  if (!media.length) return slides;
   slides.push({
     id: 'rhythm', tone: 'mix',
     body: (<>
@@ -255,7 +259,9 @@ export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => 
   const [held, setHeld] = useState(false);
   const [hidden, setHidden] = useState(tabHidden);
   const storyRef = useRef<HTMLDivElement>(null);
-  const shareRef = useRef<HTMLButtonElement>(null);
+  const endRef = useRef<HTMLButtonElement>(null);
+  // Cards are built from plays and watches (searches never go on one), so a searches-only story offers none.
+  const canShare = ins.totalMs > 0;
   const last = i === slides.length;
   const stopped = paused || held || hidden || last;
   const go = useCallback((d: number) => setI((x) => Math.max(0, Math.min(slides.length, x + d))), [slides.length]);
@@ -320,7 +326,7 @@ export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => 
     pressedAt.current = null;
     setHeld(false);
     const active = document.activeElement;
-    if (!active || active === document.body || storyRef.current?.contains(active)) shareRef.current?.focus({ preventScroll: true });
+    if (!active || active === document.body || storyRef.current?.contains(active)) endRef.current?.focus({ preventScroll: true });
   }, [last]);
   const slide = slides[i];
   return (
@@ -343,10 +349,17 @@ export function Story({ ins, onShare, onExit }: { ins: Insights; onShare: () => 
         {last ? (
           <div class="slide end" key="end">
             <p class="kicker rise">That was your {ins.year ?? 'story'}.</p>
-            <h2 class="big rise" style="animation-delay:150ms">Make it shareable — safely.</h2>
-            <p class="lead rise" style="animation-delay:300ms">Cards hide names and exact dates by default. You'll see every line before anything is saved.</p>
+            {canShare ? (<>
+              <h2 class="big rise" style="animation-delay:150ms">Make it shareable — safely.</h2>
+              <p class="lead rise" style="animation-delay:300ms">Cards hide names and exact dates by default. You'll see every line before anything is saved.</p>
+            </>) : (<>
+              <h2 class="big rise" style="animation-delay:150ms">Searches stay off share cards.</h2>
+              <p class="lead rise" style="animation-delay:300ms" data-testid="no-card">A card is made from what you played and watched, and searches are never put on one. Add a Spotify, Apple Music, YouTube or Netflix export, or tick one, to make a card.</p>
+            </>)}
             <div class="actions rise" style="animation-delay:450ms">
-              <button class="primary" onClick={onShare} ref={shareRef}>Create share card</button>
+              {canShare
+                ? <button class="primary" onClick={onShare} ref={endRef}>Create share card</button>
+                : <button class="primary" onClick={onExit} ref={endRef}>Back to your files</button>}
               <button class="ghost" onClick={() => setI(0)}>Replay</button>
             </div>
             <p class="fine source rise" style="animation-delay:600ms">Rewindary is open source. <SourceLink>See how it works on GitHub</SourceLink>.</p>

@@ -906,3 +906,38 @@ No merge, no deploy, no GitHub API (`gh`), no outreach. **CI is not claimed** (G
 - The exact six-file `dist/` matched `gh-pages` and all six live files byte-for-byte. The deployment commit is `946058ffb3a2e5b8ba3646d7e77dfa8337a04885`. An explicitly triggered legacy Pages build reached `built` with no error at 2026-11-15T03:48:08Z.
 - Live E2E passed exactly 75 checks, with zero external requests, empty storage and no page errors.
 - **GitHub Actions still report no checks (billing lock), so CI is not claimed.** No outreach.
+
+## Day 7, cycle 2 — 2026-11-15 (~10:10 Europe/Paris)
+
+**Counts (given at cycle start by Hermes):** Rewindary 0 stars, 0 forks, 0 issues, 0 open PRs · Abo Killer 0 stars, 0 forks, 0 issues, 0 open PRs. Not re-checked here: this cycle used no GitHub API. Work started from a fresh `origin/main` (`8341bde`).
+
+### Decision: a searches-only story no longer makes things up
+Cycle 1 left one limit open: a selection of searches alone (Google Search ticked by itself, or a Takeout with only My Activity → Search) still played. Searches keep only their timestamps, so they carry no duration. Reproduced with `buildSlides(computeInsights(…))` on synthetic Google searches: the slides were `intro, google, rhythm, persona`. The rhythm slide said "0% of your time fell on weekends" and counted days "with something playing". The persona slide said "Everyday Omnivore — Music, videos, shows — you refuse to pick a lane". The end slide then offered a share card built with no searches: "0 hours tracked" under that same invented persona, exportable once reviewed. For an app whose pitch is honesty about your data, that was the wrong answer to a real case. Cycle 1 chose to keep these selections playable, and this cycle keeps that.
+
+- **`src/ui/Story.tsx`:** with no play or watch time in the selection, the story ends after its search slides (no rhythm or persona). The end slide says "Searches stay off share cards", explains why, and replaces "Create share card" with a focused "Back to your files" button (back to the review screen, where an export can be added or ticked). YouTube searches with no watch history read "N searches", not "0 videos".
+- **`tests/story-slides.test.ts` (new):** slide ids for Google-only, Google plus YouTube searches, and all-time selections; one Spotify play or Netflix episode brings rhythm and persona back; the YouTube headline for searches alone.
+- **`scripts/e2e.mjs`:** after the real-format upload, Google Search alone is ticked (all time) and played. The check passes only if the slides are exactly intro, google, end, with no persona, weekend share or hours wording, no share-card button, the reason shown, and "Back to your files" focused and returning to the review screen.
+- **`README.md`:** the story, unit-test and E2E descriptions; the unit-test count is 189 in 19 files.
+
+### Verified (local, `fix/search-only-story`)
+- **Negative controls:** with `origin/main`'s `src/ui/Story.tsx`, 2 of the 3 new unit tests fail (the "keeps rhythm and persona" one passes on both, as it should). The E2E run gives 75 passed and 1 failed: "✗ a searches-only story ends after its searches … (intro, google, rhythm, persona, end)".
+- **`corepack pnpm@9.15.0 verify` exited 0** on the final tree:
+  - `tsc --noEmit` clean
+  - 189/189 Vitest tests in 19 files (+3)
+  - production build: 91.81 kB JS (34.71 kB gzipped), 17.15 kB CSS (4.92 kB gzipped), 31.12 kB worker
+  - "Privacy scan passed: 6 files, no remote URLs or network APIs, strict CSP present."
+  - 76/76 E2E checks (+1), ending "All e2e checks passed."
+- `git diff --check origin/main` clean.
+- End slide on the built app, from the synthetic `MyActivity-search.json` alone, with reduced motion: at 320×640 and 1440×900, `scrollWidth` equals `clientWidth`, the slide doesn't overflow, and the 320 px screenshot was inspected. The Impeccable detector on `src/ui/Story.tsx` returned no findings.
+
+### Failures and notes
+- **First full gate failed on timeouts, not assertions:** 4 tests hit Vitest's 5 s limit at load average 5.25. Three of them were existing demo and Takeout tests, and the fourth was the new test, which then loaded the whole synthetic demo. The new test now uses two synthetic events instead, and the next full run passed with no timeouts.
+- **First E2E version tested nothing real:** the demo has YouTube searches but no Google Search source, so unticking every media source left nothing to play. The check moved to the real-format upload, which includes My Activity → Search. It also now reports a failed check instead of timing out, and reopens the story afterwards, since the privacy checks after it close a running story.
+
+### Review against `origin/main` (revue-changement grid)
+- **No blocking or important finding.** The check is the same in the slides (`media.length`) and on the end slide (`totalMs > 0`): total time is the sum of each source's time. Share cards also leave searches out, so a selection with any play or watch keeps the share card exactly as before (the existing E2E share flow passes unchanged). Parsing, redaction, the CSP and storage are untouched.
+- **Minor, accepted:** the new unit test reads the slide's text by serialising Preact's virtual DOM (Vitest runs without a DOM). It only passes when "2 searches" is found, so it can't pass vacuously. The end slide names "YouTube" for the Takeout that also carries YouTube Music.
+- **Accepted limits:** a searches-only story is short: intro, the search slides, and the end. Headless Chromium only. Synthetic data only, no real export.
+
+### Not done
+No merge, no deploy, no GitHub API (`gh`), no outreach. **CI is not claimed** (GitHub Actions remain unavailable). The branch is pushed for Hermes to open and merge as a PR.

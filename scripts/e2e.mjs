@@ -312,6 +312,38 @@ for (let i = 0; i < 15; i++) {
   await page.locator('.tap.next').click();
 }
 check(['spotify', 'youtube', 'netflix', 'google'].every((s) => ids.includes(s)), `uploaded data produces source slides: ${ids.join(', ')}`);
+{
+  // Google Search alone: searches have no duration, so the story must not invent a persona, a 0% weekend share or a 0-hour card.
+  const controls = page.locator('.controls');
+  const media = ['Spotify', 'YouTube', 'Netflix'];
+  await page.keyboard.press('Escape');
+  await page.getByTestId('year').selectOption('all');
+  const box = (name) => controls.locator('label.check', { hasText: new RegExp(`^${name}\\s+[\\d,]+$`) }).locator('input');
+  for (const s of media) await box(s).uncheck();
+  await page.getByTestId('play').click();
+  const seen = [];
+  let text = '';
+  for (let i = 0; i < 10; i++) {
+    const id = await page.locator('.story').getAttribute('data-slide');
+    seen.push(id);
+    text += `\n${await page.locator('.story .slide').innerText()}`;
+    if (id === 'end') break;
+    await page.locator('.tap.next').click();
+  }
+  const end = page.locator('.slide.end');
+  const back = end.getByRole('button', { name: 'Back to your files' });
+  const hasBack = (await back.count()) === 1;
+  const noCard = (await end.getByRole('button', { name: 'Create share card' }).count()) === 0 && /searches are never put on one/.test(text);
+  const focused = hasBack && (await back.evaluate((b) => b === document.activeElement));
+  if (hasBack) await back.click();
+  else await page.keyboard.press('Escape');
+  await page.getByTestId('play').waitFor();
+  check(seen.join() === 'intro,google,end' && !/Omnivore|Soundtracker|of your time fell on weekends|hours of music/.test(text) && noCard && focused,
+    `a searches-only story ends after its searches, offers no share card and leads back to the files (${seen.join(', ')})`);
+  // The privacy checks below close a running story, as they did before this check.
+  await page.getByTestId('play').click();
+  await page.locator('.story').waitFor();
+}
 
 console.log('Privacy invariants');
 const blocked = await page.evaluate(() => fetch('https://example.com/collect').then(() => 'sent', () => 'blocked'));
