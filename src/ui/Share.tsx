@@ -3,6 +3,7 @@ import { CARD_FOOTER, renderCardSvg, shownLines, type CardFormat, type CardTheme
 import { computeInsights } from '../insights';
 import type { LifeEvent, SourceId } from '../model';
 import { SOURCE_LABEL } from '../model';
+import { inPeriod, sourcesWithMedia } from '../selection';
 import { slashBreaks } from './breaks';
 import { download } from './download';
 import { canCopyImage, copyPng, exportProblem, type ExportAction } from './exports';
@@ -27,7 +28,8 @@ async function svgToPng(svg: string, w: number, h: number): Promise<Blob> {
 }
 
 export function Share({ events, year, onBack }: { events: LifeEvent[]; year: number | null; onBack: () => void }) {
-  const present = useMemo(() => [...new Set(events.filter((e) => e.kind !== 'search').map((e) => e.source))], [events]);
+  // Only sources with something in the card's period can be toggled, so hiding the others never leaves an empty card.
+  const present = useMemo(() => sourcesWithMedia(inPeriod(events, year)), [events, year]);
   const [format, setFormat] = useState<CardFormat>('story');
   const [theme, setTheme] = useState<CardTheme>('dusk');
   const [hidden, setHidden] = useState<Set<SourceId>>(new Set());

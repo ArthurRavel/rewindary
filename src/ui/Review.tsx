@@ -3,9 +3,8 @@ import { availableYears } from '../insights';
 import type { IngestResult, SourceId } from '../model';
 import { SOURCE_LABEL, SOURCE_ORDER } from '../model';
 import { FOLDER_PICKER, fromInput, type Picked } from './folders';
+import { emptySelectionReason, type Filters } from '../selection';
 import { PrivacyReceipt } from './Receipt';
-
-export interface Filters { year: number | null; off: Set<SourceId>; profiles: Set<string> }
 
 export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget, demo }: {
   data: IngestResult; filters: Filters; setFilters: (f: Filters) => void; onPlay: () => void; onAddMore: (f: Picked[]) => void; onForget: () => void; demo: boolean;
@@ -15,7 +14,8 @@ export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget,
   for (const e of data.events) counts.set(e.source, (counts.get(e.source) ?? 0) + 1);
   const sources = SOURCE_ORDER.filter((s) => counts.has(s));
   const flip = <T,>(set: Set<T>, v: T) => { const n = new Set(set); n.has(v) ? n.delete(v) : n.add(v); return n; };
-  const usable = sources.some((s) => !filters.off.has(s));
+  // Play stays off while the source, profile and period filters leave nothing: it would play an empty story.
+  const empty = data.events.length > 0 ? emptySelectionReason(data.events, filters) : null;
   const add = (el: HTMLInputElement) => { const l = fromInput(el.files); el.value = ''; if (l.length) onAddMore(l); };
   return (
     <main class="review-page">
@@ -69,8 +69,9 @@ export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget,
           )}
         </div>
       )}
+      {data.events.length > 0 && <p class="fine play-hint" id="play-hint" role="status" data-testid="play-hint">{empty}</p>}
       <div class="actions">
-        {data.events.length > 0 && <button class="primary" onClick={onPlay} disabled={!usable} data-testid="play">Play my story</button>}
+        {data.events.length > 0 && <button class="primary" onClick={onPlay} disabled={empty !== null} aria-describedby={empty ? 'play-hint' : undefined} data-testid="play">Play my story</button>}
         <label class="ghost button">Add more files<input type="file" multiple accept=".zip,.tgz,.gz,.tar,.json,.csv,.html,.htm" class="sr-only" onChange={(e) => add(e.currentTarget)} data-testid="add-files" /></label>
         <label class="ghost button folder-only">Add a folder<input type="file" {...FOLDER_PICKER} class="sr-only" onChange={(e) => add(e.currentTarget)} data-testid="add-folder" /></label>
         <button class="ghost" onClick={onForget}>{data.events.length > 0 ? 'Forget everything' : 'Start over'}</button>

@@ -38,6 +38,9 @@ button:focus-visible, a:focus-visible, .button:focus-within, .drop:focus-within,
 .kicker { text-transform: uppercase; letter-spacing: .18em; font-size: .8rem; color: var(--dim); margin: 0 0 1rem; font-weight: 700; }
 .lead { font-size: 1.15rem; color: var(--dim); line-height: 1.5; margin: 0 0 1rem; max-width: 62ch; text-wrap: pretty; }
 .fine { font-size: .85rem; color: var(--dim); line-height: 1.5; }
+/* Stays in the page (a live region must exist before it speaks); takes no room while empty. */
+.play-hint { margin: 1.5rem 0 -.75rem; max-width: 60ch; text-wrap: pretty; }
+.play-hint:empty { margin: 0; }
 .grad { background: linear-gradient(90deg, var(--spotify), var(--netflix) 50%, var(--youtube)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .error { color: #ffb4b4; background: #ff6b6b1f; border: 1px solid #ff6b6b55; padding: .8rem 1rem; border-radius: 12px; }
 .dot { display: inline-block; width: .75em; height: .75em; border-radius: 50%; background: #666; margin-right: .6em; flex: none; }
