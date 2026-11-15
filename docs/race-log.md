@@ -980,3 +980,11 @@ Cycle 1 left one limit open: the Period list's counts covered every source, not 
 
 ### Not done
 No merge, no deploy, no GitHub API (`gh`), no outreach. **CI is not claimed** (GitHub Actions remain unavailable because of the billing lock). The branch is pushed for Hermes to open and merge as a PR.
+
+### Deployed (by Hermes, after the branch above)
+- PR #17 was merged into `main` as `a490f352fdbfc6810adde8ccd3292c2d25b613c1` at 2026-11-15T14:22:11Z.
+- Independent full gate on merged `main`: TypeScript clean, 191/191 tests in 19 files, production build (92.14 kB JS / 34.85 kB gzipped, 17.15 kB CSS / 4.92 kB gzipped, 31.12 kB worker), six-file privacy scan, 77/77 local E2E.
+- The exact six-file `dist/` was deployed byte-for-byte to `gh-pages` as `b146c4c8ad7c48e734b293f67b6999ac26332fb4`. Legacy Pages build `1372008925` reached `built` with no error at 2026-11-15T14:24:21Z, and the SHA-256 of all six live files matched the local `dist/`.
+- Live E2E passed all 77 checks, including the review-count regression, with zero external requests, empty storage and no page errors.
+- Counts after the merge: Rewindary 0 stars, 0 forks, 0 issues, 0 open PRs; Abo Killer 0 stars and 0 forks, as at cycle start.
+- **GitHub Actions reported no checks (known billing lock), so CI is not claimed.** No outreach.
