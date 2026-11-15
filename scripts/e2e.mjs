@@ -73,7 +73,19 @@ check(/No requests to other sites recorded/.test(await receipt.innerText()) && (
   const others = ['Spotify', 'Apple Music', 'YouTube Music', 'YouTube'];
   const box = (name) => controls.locator('label.check', { hasText: new RegExp(`^${name}\\s+[\\d,]+$`) }).locator('input');
   for (const s of others) await box(s).uncheck();
+  // The counts follow the filters: the Period list counts only Netflix, the Netflix count only the period.
+  const yearLabels = () => page.getByTestId('year').locator('option').allInnerTexts();
+  const allYears = await yearLabels();
+  const netflixCount = async () => controls.locator('label.check', { hasText: /^Netflix\s/ }).locator('small').innerText();
+  const netflixIn2025 = await netflixCount();
+  await page.getByTestId('year').selectOption('all');
+  const netflixAllTime = await netflixCount();
+  await page.getByTestId('year').selectOption('2025');
   for (const p of ['Guest', 'Sam']) await controls.locator('label.check', { hasText: new RegExp(`^${p}$`) }).locator('input').uncheck();
+  const noProfileYears = await yearLabels();
+  const noProfileNetflix = await netflixCount();
+  check(allYears.length === 3 && allYears.slice(0, 2).every((l) => /^\d{4} \([1-9][\d,]*\)$/.test(l)) && noProfileYears.slice(0, 2).every((l) => /^\d{4} \(0\)$/.test(l)) && noProfileNetflix === '0' && Number(netflixAllTime.replace(/,/g, '')) > Number(netflixIn2025.replace(/,/g, '')),
+    `review counts follow the filters: with Netflix alone the years read ${JSON.stringify(allYears)}, with no profile ${JSON.stringify(noProfileYears)}; Netflix counts ${netflixIn2025} in 2025, ${netflixAllTime} all time, ${noProfileNetflix} with no profile`);
   const play = page.getByTestId('play');
   const hint = await page.getByTestId('play-hint').innerText();
   const blocked = (await play.isDisabled()) && (await play.getAttribute('aria-describedby')) === 'play-hint' && /Netflix profiles ticked/.test(hint);

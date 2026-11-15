@@ -948,3 +948,35 @@ No merge, no deploy, no GitHub API (`gh`), no outreach. **CI is not claimed** (G
 - The exact six-file `dist/` matched the `gh-pages` worktree byte-for-byte. The deployment commit is `e18ee461a86de8508e026bd2869e012e3083798b`. An explicitly triggered legacy Pages build (`1371378649`) reached `built` with no error at 2026-11-15T09:09:52Z.
 - Live E2E completed successfully with all 76 checks, including the searches-only regression, with zero external requests, empty storage and no page errors.
 - **GitHub Actions reported no checks (known billing lock), so CI is not claimed.** No outreach.
+
+## Day 7, cycle 3 — 2026-11-15 (~15:15 Europe/Paris)
+
+**Counts (given at cycle start, verified by Hermes):** Rewindary 0 stars, 0 forks, 0 issues, 0 open PRs · Abo Killer 0 stars, 0 forks. Not re-checked here: this cycle used no GitHub API. Work started from a fresh `origin/main` (`15ef731`), with a clean tree.
+
+### Decision: the review screen's counts follow the filters
+Cycle 1 left one limit open: the Period list's counts covered every source, not only the ticked ones. The source counts had the opposite problem and covered every year, not the chosen period. Reproduced on the synthetic demo in headless Chromium: with Netflix ticked alone, the Period list still read "2025 (13,275)" and "2024 (11,043)", which are the counts for all sources. Netflix read 827 whether 2025 or all time was chosen. With both Netflix profiles unticked, the years still read 13,275 and 11,043 while Play said there was nothing to play. The numbers next to the controls didn't describe what the story would play.
+
+- **`src/selection.ts`:** new pure `reviewCounts(events, filters)`. It makes one pass over the history, like the two loops it replaces. A year counts entries from the ticked sources and Netflix profiles. A source counts its entries in the chosen period (and, for Netflix, the ticked profiles), whether it is ticked or not, so it shows what ticking it would add. Every year and source in the history stays listed, at 0 if need be, so the selected option never disappears. The profile rule is shared with `applyFilters` (no change in behaviour).
+- **`src/ui/Review.tsx`:** uses `reviewCounts` in place of `availableYears` and its own count loop. There are no markup or CSS changes. `defaultYear` still uses the whole history.
+- **`tests/selection.test.ts`:** +2 tests. The first checks exact year and source counts with sources off, one profile and a year with nothing left. The second checks, on the demo, that each year's count equals the filtered entries and that a year reads 0 exactly when `emptySelectionReason` blocks Play.
+- **`scripts/e2e.mjs`:** in the existing demo block (Netflix ticked alone), the Period options and the Netflix count are read before and after changing the period and unticking the profiles.
+- **`README.md`:** the filter feature line, the unit and E2E descriptions, and the count of 191 tests in 19 files. The race banner, Abo Killer link and badges, GIF and AI disclosure are unchanged.
+
+### Verified (local, `fix/review-counts-follow-filters`)
+- **Negative control:** with `origin/main`'s `src/ui/Review.tsx` rebuilt, E2E gave 76 passed and 1 failed: "✗ review counts follow the filters: with Netflix alone the years read ["2025 (13,275)","2024 (11,043)","All time"], with no profile ["2025 (13,275)","2024 (11,043)","All time"]; Netflix counts 827 in 2025, 827 all time, 827 with no profile". The new unit tests can't run without `reviewCounts`.
+- **`corepack pnpm@9.15.0 verify` exited 0** on the final tree (load average 3.37 at the start):
+  - `tsc --noEmit` clean
+  - 191/191 Vitest tests in 19 files (+2)
+  - production build: 92.14 kB JS (34.85 kB gzipped), 17.15 kB CSS (4.92 kB gzipped), 31.12 kB worker
+  - "Privacy scan passed: 6 files, no remote URLs or network APIs, strict CSP present."
+  - 77/77 E2E checks (+1), including "✓ review counts follow the filters: with Netflix alone the years read ["2025 (447)","2024 (380)","All time"], with no profile ["2025 (0)","2024 (0)","All time"]; Netflix counts 447 in 2025, 827 all time, 0 with no profile" and "✓ no screen scrolls sideways at 320 px wide". The run ended "All e2e checks passed."
+- After the negative control, `dist/` was rebuilt from the final tree and the privacy scan passed again.
+- `git diff --check origin/main` clean.
+
+### Review against `origin/main` (revue-changement grid)
+- **No blocking or important finding.** The year counts use the same local-year rule as `inPeriod` and `emptySelectionReason`, and the unit test checks on the demo that they agree. The existing E2E selector for source checkboxes (`^Name\s+[\d,]+$`) still matches a 0 count. Every source and year stays listed, so no selected option disappears. Parsing, redaction, cards, the CSP and storage are untouched.
+- **Minor, accepted:** "All time" still has no count. Netflix profile checkboxes have no counts, as before. A source's count now leaves out the rows of unticked Netflix profiles. That is intended, and the README says so.
+- **Limits:** headless Chromium only. Synthetic data only, no real export. There was no new screenshot pass: the markup and CSS are unchanged and only the numbers change, and the existing 320 px check passed.
+
+### Not done
+No merge, no deploy, no GitHub API (`gh`), no outreach. **CI is not claimed** (GitHub Actions remain unavailable because of the billing lock). The branch is pushed for Hermes to open and merge as a PR.

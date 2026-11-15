@@ -1,18 +1,16 @@
 import { num } from '../format';
-import { availableYears } from '../insights';
-import type { IngestResult, SourceId } from '../model';
-import { SOURCE_LABEL, SOURCE_ORDER } from '../model';
+import type { IngestResult } from '../model';
+import { SOURCE_LABEL } from '../model';
 import { FOLDER_PICKER, fromInput, type Picked } from './folders';
-import { emptySelectionReason, type Filters } from '../selection';
+import { emptySelectionReason, reviewCounts, type Filters } from '../selection';
 import { PrivacyReceipt } from './Receipt';
 
 export function Review({ data, filters, setFilters, onPlay, onAddMore, onForget, demo }: {
   data: IngestResult; filters: Filters; setFilters: (f: Filters) => void; onPlay: () => void; onAddMore: (f: Picked[]) => void; onForget: () => void; demo: boolean;
 }) {
-  const years = availableYears(data.events);
-  const counts = new Map<SourceId, number>();
-  for (const e of data.events) counts.set(e.source, (counts.get(e.source) ?? 0) + 1);
-  const sources = SOURCE_ORDER.filter((s) => counts.has(s));
+  // Each count follows the other filters: a year counts the ticked sources, a source counts the period.
+  const { years, sources: counts } = reviewCounts(data.events, filters);
+  const sources = [...counts.keys()];
   const flip = <T,>(set: Set<T>, v: T) => { const n = new Set(set); n.has(v) ? n.delete(v) : n.add(v); return n; };
   // Play stays off while the source, profile and period filters leave nothing: it would play an empty story.
   const empty = data.events.length > 0 ? emptySelectionReason(data.events, filters) : null;
