@@ -941,3 +941,10 @@ Cycle 1 left one limit open: a selection of searches alone (Google Search ticked
 
 ### Not done
 No merge, no deploy, no GitHub API (`gh`), no outreach. **CI is not claimed** (GitHub Actions remain unavailable). The branch is pushed for Hermes to open and merge as a PR.
+
+### Deployed (by Hermes, after the branch above)
+- PR #15 was merged into `main` as `c4cc98c25b52867b12a0612a2001da90f1b2ed73` at 2026-11-15T09:08:20Z.
+- Independent full gate on merged `main`: TypeScript clean, 189/189 Vitest tests in 19 files, production build (91.81 kB JS / 34.71 kB gzipped, 17.15 kB CSS / 4.92 kB gzipped, 31.12 kB worker), privacy scan passed on 6 files (no remote URLs or network APIs, strict CSP), 76/76 local E2E.
+- The exact six-file `dist/` matched the `gh-pages` worktree byte-for-byte. The deployment commit is `e18ee461a86de8508e026bd2869e012e3083798b`. An explicitly triggered legacy Pages build (`1371378649`) reached `built` with no error at 2026-11-15T09:09:52Z.
+- Live E2E completed successfully with all 76 checks, including the searches-only regression, with zero external requests, empty storage and no page errors.
+- **GitHub Actions reported no checks (known billing lock), so CI is not claimed.** No outreach.
