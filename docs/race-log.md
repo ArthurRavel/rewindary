@@ -868,3 +868,34 @@ Earlier cycles left one limit open: press-and-hold pauses the story, but a touch
 - An explicitly triggered legacy Pages build reached `built` with no error at 2026-11-14T22:32:36Z.
 - The SHA-256 of all six live files matched the local `dist/`.
 - The live E2E run passed 74/74 checks, including the touch-drift regression, with zero external requests, empty storage and no page errors.
+
+## Day 7, cycle 1 — 2026-11-15 (~04:36 Europe/Paris)
+
+**Counts (given at cycle start, verified by Hermes):** Rewindary 0 stars, 0 forks · Abo Killer 0 stars, 0 forks. No open issues or PRs on either. Not re-checked here: this cycle used no GitHub API. The local checkout was stale, so work started from a fresh `origin/main` (`089a20d`).
+
+### Decision: an empty selection no longer plays an empty story
+The review screen's Play button only checked that at least one source was ticked. It ignored the period and the Netflix profile filter. Reproduced on the synthetic demo: tick Netflix alone and untick both profiles, and Play stays enabled. The story then plays 0 hours with a made-up persona ("Everyday Omnivore", which `computeInsights([])` returns), and the card can be exported. A real history hits the same case when a source is ticked for a year it has no plays in, for example a quick Netflix CSV covering only 2025 with 2024 selected. The share card had a smaller version of the same bug: it offered every source in the history as a toggle, so hiding the one source with plays in the period left an empty card.
+
+- **`src/selection.ts` (new, pure):** the review filters (moved out of `App.tsx` unchanged), the period filter, and `emptySelectionReason`. It returns null as soon as one entry passes, searches included, so a search-only selection still plays its search slides. Otherwise it gives a reason: no source ticked, nothing in that year from the ticked sources, or "…and Netflix profiles" when unticked profiles are part of the cause.
+- **`src/ui/Review.tsx`:** Play is disabled while the reason is set. The reason is shown above the buttons in a `role="status"` line and linked with `aria-describedby`. The line stays in the page while empty (a live region must exist before it speaks) and takes no room.
+- **`src/ui/Share.tsx`:** the "Sources on the card" toggles list only sources with plays or watches in the card's period.
+
+### Verified (local, `fix/empty-selection-story`)
+- **Negative control:** with `origin/main`'s UI files, the new E2E check fails (no reason shown and Play still enabled: it times out waiting for `play-hint`). The new unit tests can't run without `src/selection.ts`.
+- **`corepack pnpm@9.15.0 verify` exited 0** on the final tree, after the review fix:
+  - `tsc --noEmit` clean
+  - 186/186 Vitest tests in 18 files (+7 in `tests/selection.test.ts`)
+  - production build: 91.23 kB JS (34.54 kB gzipped), 17.15 kB CSS (4.92 kB gzipped), 31.12 kB worker
+  - "Privacy scan passed: 6 files, no remote URLs or network APIs, strict CSP present."
+  - 75/75 E2E checks (+1)
+- `git diff --check origin/main` clean.
+- 320×900 and 1440×900 screenshots of the demo's review screen with every source unticked: the reason wraps under the controls, the disabled Play reads as disabled, and `scrollWidth` equals `clientWidth` at both widths.
+- The impeccable detector flagged only the existing gradient text (`src/styles.css` lines 44 and 137), which this change doesn't touch. Left as is.
+
+### Review against `origin/main` (revue-changement grid)
+- **Fixed (important):** the first version built two filtered copies of the whole history on every render of the review screen, which also re-renders during a drag. It now stops at the first matching entry.
+- **Checked:** no blocking finding. Unchanged behaviour: the filters (same predicate, now shared), Netflix rows without a profile, and the default year. The card's "keep at least one source" rule still holds, because only toggles for sources present in the period can be hidden.
+- **Accepted limits:** the Period list's counts still cover every source, not only the ticked ones. A search-only selection (Google Search alone) still plays and opens a share card with no media source, as before. Headless Chromium only. Synthetic data only, no real export.
+
+### Not done
+No merge, no deploy, no GitHub API (`gh`), no outreach. **CI is not claimed** (GitHub Actions remain unavailable). The branch is pushed for Hermes to open and merge as a PR.
