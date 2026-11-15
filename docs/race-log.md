@@ -899,3 +899,10 @@ The review screen's Play button only checked that at least one source was ticked
 
 ### Not done
 No merge, no deploy, no GitHub API (`gh`), no outreach. **CI is not claimed** (GitHub Actions remain unavailable). The branch is pushed for Hermes to open and merge as a PR.
+
+### Deployed (by Hermes, after the branch above)
+- PR #13 was merged into `main` as `3bb97938` at 2026-11-15T03:46:13Z.
+- Full gate on merged `main`: TypeScript clean, 186/186 tests in 18 files, production build (91.23 kB JS / 34.54 kB gzipped, 17.15 kB CSS / 4.92 kB gzipped, 31.12 kB worker), six-file privacy scan, 75/75 local E2E.
+- The exact six-file `dist/` matched `gh-pages` and all six live files byte-for-byte. The deployment commit is `946058ffb3a2e5b8ba3646d7e77dfa8337a04885`. An explicitly triggered legacy Pages build reached `built` with no error at 2026-11-15T03:48:08Z.
+- Live E2E passed exactly 75 checks, with zero external requests, empty storage and no page errors.
+- **GitHub Actions still report no checks (billing lock), so CI is not claimed.** No outreach.
