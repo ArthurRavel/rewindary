@@ -67,6 +67,22 @@ await page.getByTestId('reports').waitFor();
 check((await page.getByTestId('reports').locator('li').count()) === 5, 'demo produces 5 parsed export files (Spotify, Apple Music, 2 Takeout, Netflix)');
 const receipt = page.getByTestId('receipt');
 check(/No requests to other sites recorded/.test(await receipt.innerText()) && (await page.getByTestId('receipt-external').innerText()) === 'none' && (await page.getByTestId('receipt-blocked').innerText()) === 'none', 'privacy receipt reports no external or blocked requests after the demo');
+{
+  // Filters that leave nothing (Netflix alone, no profile ticked) must not play an empty 0-hour story.
+  const controls = page.locator('.controls');
+  const others = ['Spotify', 'Apple Music', 'YouTube Music', 'YouTube'];
+  const box = (name) => controls.locator('label.check', { hasText: new RegExp(`^${name}\\s+[\\d,]+$`) }).locator('input');
+  for (const s of others) await box(s).uncheck();
+  for (const p of ['Guest', 'Sam']) await controls.locator('label.check', { hasText: new RegExp(`^${p}$`) }).locator('input').uncheck();
+  const play = page.getByTestId('play');
+  const hint = await page.getByTestId('play-hint').innerText();
+  const blocked = (await play.isDisabled()) && (await play.getAttribute('aria-describedby')) === 'play-hint' && /Netflix profiles ticked/.test(hint);
+  await controls.locator('label.check', { hasText: /^Sam$/ }).locator('input').check();
+  const back = (await play.isEnabled()) && (await page.getByTestId('play-hint').innerText()) === '';
+  await controls.locator('label.check', { hasText: /^Guest$/ }).locator('input').check();
+  for (const s of others) await box(s).check();
+  check(blocked && back, `an empty selection cannot play and says why ("${hint}"); ticking a profile enables Play again`);
+}
 await page.getByTestId('play').click();
 const slideIds = [];
 let changeText = '';

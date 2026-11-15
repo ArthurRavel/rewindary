@@ -7,7 +7,8 @@ import { loadDemo } from '../pipeline';
 import { droppedEntries, fromInput, walkEntries, type Picked } from './folders';
 import { Home } from './Home';
 import { Icon } from './Icon';
-import { Review, type Filters } from './Review';
+import { Review } from './Review';
+import { applyFilters, type Filters } from '../selection';
 import { Share } from './Share';
 import { Story } from './Story';
 
@@ -155,7 +156,7 @@ export function App() {
 
   const filtered = useMemo(() => {
     if (!data) return [];
-    return data.events.filter((e) => !filters.off.has(e.source) && (e.source !== 'netflix' || !e.profile || filters.profiles.has(e.profile)));
+    return applyFilters(data.events, filters);
   }, [data, filters]);
   const ins = useMemo(() => (stage === 'story' ? computeInsights(filtered, filters.year) : null), [filtered, filters.year, stage]);
 
